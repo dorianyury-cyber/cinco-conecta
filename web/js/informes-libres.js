@@ -798,6 +798,74 @@ async function subirImagenImportada(base64, contentType) {
   return { tipo: "imagen", archivo: { nombre: "imagen-importada.jpg", path: data.path, tipo: "image/jpeg", tamano: blobComprimido.size }, titulo: "", pie: "" };
 }
 
+// ---------------------------------------------------------------------
+// Reparar encabezados "disfrazados" antes de pasarle el documento a
+// mammoth. Verificado contra un informe real de Cinco S.A.S.: cuando un
+// título de Word no usa el estilo con nombre "Título 1/2/3" sino que se
+// arma con la numeración automática de la cinta (viñeta/numeración +
+// "Nivel de esquema" en Párrafo > Numeración), mammoth no lo reconoce
+// como encabezado — lo convierte en una lista (<ul>/<ol><li>) sin
+// importar qué otro estilo tenga el párrafo, y termina como un párrafo
+// suelto con un "•" delante en vez de un bloque de Título numerado.
+// La señal confiable de que un párrafo así SÍ es un título (y no una
+// lista real) es que Word le puso <w:outlineLvl> (nivel de esquema, lo
+// que alimenta la navegación y la Tabla de Contenido nativa de Word) — un
+// párrafo de una lista común nunca tiene esa marca. El nivel de la lista
+// (<w:ilvl>) indica a qué nivel de título corresponde (0→Título 1,
+// 1→Título 2, 2 o más→Título 3).
+// ---------------------------------------------------------------------
+
+const NIVEL_A_ESTILO_TITULO = { 1: "Ttulo1", 2: "Ttulo2", 3: "TituloAutoDetectado3" };
+
+function nivelTituloDesdeIlvl(ilvl) {
+  if (ilvl === 0) return 1;
+  if (ilvl === 1) return 2;
+  return 3;
+}
+
+async function repararEncabezadosDisfrazados(buffer) {
+  const zip = await window.JSZip.loadAsync(buffer);
+  const docXmlPath = "word/document.xml";
+  const stylesXmlPath = "word/styles.xml";
+  const docXmlFile = zip.file(docXmlPath);
+  const stylesXmlFile = zip.file(stylesXmlPath);
+  if (!docXmlFile || !stylesXmlFile) return buffer; // no es un .docx con la estructura esperada
+
+  let docXml = await docXmlFile.async("string");
+  let stylesXml = await stylesXmlFile.async("string");
+
+  // El documento puede no traer un estilo con nombre "heading 3" real (los
+  // niveles 1 y 2 casi siempre existen aunque no se usen, por venir en la
+  // plantilla base de Word) — si falta, se agrega uno mínimo.
+  if (!/w:styleId="TituloAutoDetectado3"/.test(stylesXml)) {
+    const nuevoEstilo = '<w:style w:type="paragraph" w:styleId="TituloAutoDetectado3"><w:name w:val="heading 3"/><w:basedOn w:val="Normal"/></w:style>';
+    stylesXml = stylesXml.replace("</w:styles>", `${nuevoEstilo}</w:styles>`);
+  }
+
+  docXml = docXml.replace(/<w:p [^>]*>[\s\S]*?<\/w:p>/g, (parrafo) => {
+    if (!/<w:numPr>/.test(parrafo)) return parrafo;
+    if (!/<w:outlineLvl w:val="\d+"/.test(parrafo)) return parrafo;
+    const ilvlMatch = parrafo.match(/<w:ilvl w:val="(\d+)"/);
+    const nivel = nivelTituloDesdeIlvl(ilvlMatch ? Number(ilvlMatch[1]) : 0);
+    const styleId = NIVEL_A_ESTILO_TITULO[nivel];
+    // Se quita la numeración manual de Word (el motor de PDF de Cinco
+    // Conecta ya pone su propia numeración "1."/"1.1" al generar el
+    // informe) — si no, mammoth sigue envolviendo el párrafo en una lista
+    // sin importar el estilo. El estilo que tuviera antes (normalmente
+    // "Párrafo de lista", que Word asigna solo por tener viñeta/numeración
+    // y no aporta semántica de título) se reemplaza por el de encabezado.
+    const sinNumPr = parrafo.replace(/<w:numPr>[\s\S]*?<\/w:numPr>/, "");
+    if (/<w:pStyle [^/]*\/>/.test(sinNumPr)) {
+      return sinNumPr.replace(/<w:pStyle [^/]*\/>/, `<w:pStyle w:val="${styleId}"/>`);
+    }
+    return sinNumPr.replace("<w:pPr>", `<w:pPr><w:pStyle w:val="${styleId}"/>`);
+  });
+
+  zip.file(docXmlPath, docXml);
+  zip.file(stylesXmlPath, stylesXml);
+  return zip.generateAsync({ type: "arraybuffer" });
+}
+
 /**
  * A diferencia de un simple recorrido nodo-por-nodo, aquí se necesita
  * "mirar" el párrafo anterior y siguiente a una imagen/tabla para
@@ -809,7 +877,15 @@ async function subirImagenImportada(base64, contentType) {
  * que la vuelta futura no lo vuelva a agregar como párrafo aparte.
  */
 async function importarDocx(file) {
-  const buffer = await file.arrayBuffer();
+  let buffer = await file.arrayBuffer();
+  try {
+    buffer = await repararEncabezadosDisfrazados(buffer);
+  } catch (err) {
+    // Si la reparación falla por cualquier motivo, se sigue con el
+    // documento tal cual — mejor un encabezado sin numerar que un import
+    // roto por completo.
+    console.error("No se pudieron reparar encabezados disfrazados de lista:", err);
+  }
   const imagenesCapturadas = [];
   const opciones = {
     convertImage: window.mammoth.images.imgElement((image) =>
