@@ -1301,18 +1301,22 @@ document.getElementById("generarPdfBtn").addEventListener("click", async () => {
     // indice*) — volver a las páginas reservadas y rellenarlas. `nuevaPagina`
     // se reemplaza por doc.setPage() al siguiente hueco ya reservado en vez
     // de doc.addPage(), que agregaría una página nueva al final del
-    // documento en lugar de continuar donde toca.
+    // documento en lugar de continuar donde toca. Cada sección arranca
+    // donde realmente terminó la anterior (no en un número de página
+    // precalculado) para que nunca dos secciones queden compartiendo una
+    // misma página, incluso si alguna necesitó una página más o menos de
+    // las que se habían reservado.
     let paginaDeRelleno = primeraPaginaIndices;
     if (entradasTitulos.length) {
       docPdf.setPage(paginaDeRelleno);
       agregarTablaDeContenido(docPdf, contadores.indiceTitulos, { nuevaPagina: () => docPdf.setPage(++paginaDeRelleno) });
+      paginaDeRelleno += 1;
     }
-    paginaDeRelleno = primeraPaginaIndices + paginasTOC;
     if (entradasFiguras.length) {
       docPdf.setPage(paginaDeRelleno);
       agregarIndiceElementos(docPdf, "Índice de Imágenes", contadores.indiceFiguras, "Imagen", { nuevaPagina: () => docPdf.setPage(++paginaDeRelleno) });
+      paginaDeRelleno += 1;
     }
-    paginaDeRelleno = primeraPaginaIndices + paginasTOC + paginasImg;
     if (entradasTablas.length) {
       docPdf.setPage(paginaDeRelleno);
       agregarIndiceElementos(docPdf, "Índice de Tablas", contadores.indiceTablas, "Tabla", { nuevaPagina: () => docPdf.setPage(++paginaDeRelleno) });

@@ -196,6 +196,20 @@ function formatearFechaInforme(fecha) {
   return d.toLocaleDateString("es-CO", { year: "numeric", month: "long", day: "numeric" });
 }
 
+/**
+ * Número de página tal como lo ve el lector en el pie de página real
+ * (agregarEncabezadoPiePaginaInforme numera "Página 1 de N" empezando en
+ * la primera página de CONTENIDO, sin contar la portada) — hay que usar
+ * este mismo número al registrar en qué página cae cada título/figura/
+ * tabla para la Tabla de Contenido e Índices; si se usara el número de
+ * página FÍSICO de jsPDF (que sí cuenta la portada), la Tabla de
+ * Contenido señalaría una página distinta a la que el lector encuentra
+ * al buscar ese mismo número en el pie de página real.
+ */
+function paginaVisible(doc) {
+  return doc.internal.getNumberOfPages() - 1;
+}
+
 /** Fecha corta DD/MM/AAAA, como la lleva la portada (colofón ciudad + fecha). */
 function formatearFechaCorta(fecha) {
   if (!fecha) return "";
@@ -516,7 +530,7 @@ export function agregarBloqueTitulo(doc, y, nivel, numero, texto, contadores) {
   const anchoPagina = doc.internal.pageSize.getWidth();
   const anchoContenido = anchoPagina - MARGEN_APA * 2;
   let yActual = saltoDePaginaSiNecesario(doc, y, 14);
-  if (contadores) contadores.indiceTitulos.push({ nivel, numero, texto, pagina: doc.internal.getNumberOfPages() });
+  if (contadores) contadores.indiceTitulos.push({ nivel, numero, texto, pagina: paginaVisible(doc) });
 
   const tamanos = { 1: 14, 2: 12, 3: 11 };
   doc.setFont("times", nivel === 3 ? "bolditalic" : "bold");
@@ -579,7 +593,7 @@ export function agregarBloqueImagen(doc, y, dataUrl, titulo, pie, contadores, et
 
       const numero = etiqueta === "Tabla" ? (contadores.tabla += 1) : (contadores.figura += 1);
       let yActual = saltoDePaginaSiNecesario(doc, y, altoFinal + 20);
-      const entradaIndice = { numero, titulo: titulo || "", pagina: doc.internal.getNumberOfPages() };
+      const entradaIndice = { numero, titulo: titulo || "", pagina: paginaVisible(doc) };
       if (etiqueta === "Tabla") contadores.indiceTablas.push(entradaIndice); else contadores.indiceFiguras.push(entradaIndice);
       doc.setFont("times", "bold");
       doc.setFontSize(10);
@@ -606,17 +620,21 @@ export function agregarBloqueImagen(doc, y, dataUrl, titulo, pie, contadores, et
 }
 
 /**
- * Tabla con rótulo "Tabla N." numerado ARRIBA (título tal cual, sin
- * alterarlo) y, si hay nota/fuente ("pie"), debajo en cursiva — estilo
- * APA de tabla. Reutiliza agregarTabla tal cual, solo con los márgenes de
- * este informe (1 pulgada) en vez de los 12mm del resto de la plataforma.
+ * Tabla con rótulo "Tabla N." numerado ARRIBA (título tal cual, centrado)
+ * y, si hay nota/fuente ("pie"), debajo — la nota va en la esquina
+ * inferior derecha (no centrada: en una tabla ancha, un texto corto como
+ * "Elaboración propia" centrado en toda la página queda flotando sin
+ * relación visual con la tabla; en la esquina se lee como una anotación de
+ * la tabla misma). Reutiliza agregarTabla tal cual, solo con los márgenes
+ * de este informe (1 pulgada) en vez de los 12mm del resto de la
+ * plataforma.
  */
 export function agregarBloqueTabla(doc, y, columnas, filas, tituloTabla, pie, contadores) {
   const anchoPagina = doc.internal.pageSize.getWidth();
   const centroX = anchoPagina / 2;
   contadores.tabla += 1;
   let yActual = saltoDePaginaSiNecesario(doc, y, 20);
-  contadores.indiceTablas.push({ numero: contadores.tabla, titulo: tituloTabla || "", pagina: doc.internal.getNumberOfPages() });
+  contadores.indiceTablas.push({ numero: contadores.tabla, titulo: tituloTabla || "", pagina: paginaVisible(doc) });
   doc.setFont("times", "bold");
   doc.setFontSize(10);
   doc.text(`Tabla ${contadores.tabla}.${tituloTabla ? " " + tituloTabla : ""}`, centroX, yActual, { align: "center" });
@@ -630,7 +648,7 @@ export function agregarBloqueTabla(doc, y, columnas, filas, tituloTabla, pie, co
     doc.setFontSize(9);
     const lineasPie = doc.splitTextToSize(pie, anchoContenido);
     yActual = saltoDePaginaSiNecesario(doc, yActual, lineasPie.length * 4.5);
-    doc.text(lineasPie, centroX, yActual, { align: "center" });
+    doc.text(lineasPie, anchoPagina - MARGEN_APA, yActual, { align: "right" });
     yActual += lineasPie.length * 4.5 + 3;
   }
   return yActual + 4;
@@ -642,7 +660,7 @@ export function agregarBloqueGraficoBarras(doc, y, { titulo, etiquetas, valores 
   const anchoContenido = anchoPagina - MARGEN_APA * 2;
   const altoGrafico = 60;
   let yActual = saltoDePaginaSiNecesario(doc, y, altoGrafico + 20);
-  const paginaEntrada = doc.internal.getNumberOfPages();
+  const paginaEntrada = paginaVisible(doc);
   const yBase = yActual + altoGrafico;
   const maxValor = Math.max(...valores, 1);
   const anchoBarra = anchoContenido / valores.length;
@@ -677,7 +695,7 @@ export function agregarBloqueGraficoLineas(doc, y, { titulo, etiquetas, valores 
   const anchoContenido = anchoPagina - MARGEN_APA * 2;
   const altoGrafico = 60;
   let yActual = saltoDePaginaSiNecesario(doc, y, altoGrafico + 20);
-  const paginaEntrada = doc.internal.getNumberOfPages();
+  const paginaEntrada = paginaVisible(doc);
   const yBase = yActual + altoGrafico;
   const maxValor = Math.max(...valores, 1);
   const paso = valores.length > 1 ? anchoContenido / (valores.length - 1) : 0;
@@ -716,7 +734,7 @@ export function agregarBloqueGraficoPastel(doc, y, { titulo, etiquetas, valores 
   const cx = anchoPagina / 2 - 30;
   const alturaBloque = radio * 2 + 14;
   let yActual = saltoDePaginaSiNecesario(doc, y, alturaBloque + 20);
-  const paginaEntrada = doc.internal.getNumberOfPages();
+  const paginaEntrada = paginaVisible(doc);
   const cy = yActual + radio;
 
   const total = valores.reduce((s, v) => s + v, 0) || 1;
