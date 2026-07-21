@@ -10,7 +10,8 @@ import {
 import {
   crearDocumentoPDF, agregarPortadaInforme, agregarBloqueTitulo, agregarBloqueParrafo,
   agregarBloqueImagen, agregarBloqueTabla, agregarBloqueGraficoBarras, agregarBloqueGraficoLineas,
-  agregarBloqueGraficoPastel, agregarPiePagina, descargarPDF, crearContadoresInforme
+  agregarBloqueGraficoPastel, agregarEncabezadoPiePaginaInforme, agregarSeccionReferencias,
+  descargarPDF, crearContadoresInforme
 } from "./pdf.js";
 import * as pdfjsLib from "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.6.82/build/pdf.min.mjs";
 
@@ -22,6 +23,18 @@ setActiveNav();
 
 const uid = user.uid;
 const esAdmin = perfil.rol === "admin";
+
+// Referencias APA que siempre se incluyen por defecto en un informe nuevo
+// (normas del Sistema de Gestión Integrado de Cinco S.A.S. + RETIE) — el
+// usuario puede editarlas/quitarlas/agregar las suyas, pero el PDF siempre
+// lleva la sección de Referencias, así el documento importado no traiga
+// ninguna.
+const REFERENCIAS_POR_DEFECTO = [
+  "International Organization for Standardization. (2015). Sistemas de gestión de la calidad — Requisitos (ISO 9001:2015).",
+  "International Organization for Standardization. (2015). Sistemas de gestión ambiental — Requisitos con orientación para su uso (ISO 14001:2015).",
+  "International Organization for Standardization. (2018). Sistemas de gestión de la seguridad y salud en el trabajo — Requisitos con orientación para su uso (ISO 45001:2018).",
+  "Ministerio de Minas y Energía de Colombia. (2013). Reglamento Técnico de Instalaciones Eléctricas (RETIE)."
+];
 
 // ---------------------------------------------------------------------
 // Imagen: comprimir en el navegador antes de subir (fotos de obra desde
@@ -63,6 +76,22 @@ function leerBlobComoBase64(blob) {
     lector.onload = () => resolve(String(lector.result).split(",")[1] || "");
     lector.onerror = reject;
     lector.readAsDataURL(blob);
+  });
+}
+
+function base64ABlob(base64, contentType) {
+  const binario = atob(base64);
+  const bytes = new Uint8Array(binario.length);
+  for (let i = 0; i < binario.length; i++) bytes[i] = binario.charCodeAt(i);
+  return new Blob([bytes], { type: contentType || "image/png" });
+}
+
+function cargarImagenElemento(url) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = reject;
+    img.src = url;
   });
 }
 
@@ -337,6 +366,7 @@ function extraerCamposDePropuesta(lineas, itemsPrimeraPagina) {
 let informes = [];
 let informeActual = null;
 let bloques = [];
+let referencias = [];
 let modoMeta = "crear";
 const imagenesCache = {};
 const imagenesCargando = new Set();
@@ -344,6 +374,7 @@ const imagenesCargando = new Set();
 const tablaInformes = document.getElementById("tablaInformes");
 const datalistClientes = document.getElementById("clientesConocidos");
 const contenedorBloques = document.getElementById("contenedorBloques");
+const contenedorReferencias = document.getElementById("contenedorReferencias");
 const modalBackdrop = document.getElementById("modalBackdrop");
 const metaAlertBox = document.getElementById("metaAlertBox");
 
@@ -473,11 +504,12 @@ document.getElementById("metaForm").addEventListener("submit", async (e) => {
         fecha: hoyStr(),
         estado: "borrador",
         bloques: [],
+        referencias: REFERENCIAS_POR_DEFECTO.slice(),
         creadoEn: serverTimestamp(),
         actualizadoEn: serverTimestamp()
       });
       modalBackdrop.classList.remove("open");
-      abrirEditor({ id: ref.id, ...datos, codigo, autorUid: uid, autorNombre: perfil.nombre, fecha: hoyStr(), estado: "borrador", bloques: [] });
+      abrirEditor({ id: ref.id, ...datos, codigo, autorUid: uid, autorNombre: perfil.nombre, fecha: hoyStr(), estado: "borrador", bloques: [], referencias: REFERENCIAS_POR_DEFECTO.slice() });
     } else {
       await updateDoc(doc(db, "informesLibres", informeActual.id), datos);
       informeActual = { ...informeActual, ...datos };
@@ -504,10 +536,12 @@ function puedeEditarInforme() {
 function abrirEditor(informe) {
   informeActual = informe;
   bloques = JSON.parse(JSON.stringify(informe.bloques || []));
+  referencias = JSON.parse(JSON.stringify(informe.referencias && informe.referencias.length ? informe.referencias : REFERENCIAS_POR_DEFECTO));
   document.getElementById("vistaLista").classList.add("hidden");
   document.getElementById("vistaEditor").classList.remove("hidden");
   renderCabeceraEditor();
   renderBloques();
+  renderReferencias();
 }
 
 document.getElementById("volverListaBtn").addEventListener("click", () => {
@@ -515,6 +549,7 @@ document.getElementById("volverListaBtn").addEventListener("click", () => {
   document.getElementById("vistaLista").classList.remove("hidden");
   informeActual = null;
   bloques = [];
+  referencias = [];
 });
 
 function renderCabeceraEditor() {
@@ -537,6 +572,7 @@ document.getElementById("editarMetaBtn").addEventListener("click", () => abrirMo
 
 async function guardarBloques(extra = {}) {
   sincronizarBloquesDesdeDOM();
+  sincronizarReferenciasDesdeDOM();
   const btn = document.getElementById("guardarBorradorBtn");
   const alertBox = document.getElementById("editorAlertBox");
   clearAlert(alertBox);
@@ -544,12 +580,14 @@ async function guardarBloques(extra = {}) {
   try {
     await updateDoc(doc(db, "informesLibres", informeActual.id), {
       bloques,
+      referencias,
       actualizadoEn: serverTimestamp(),
       ...extra
     });
-    informeActual = { ...informeActual, bloques: JSON.parse(JSON.stringify(bloques)), ...extra };
+    informeActual = { ...informeActual, bloques: JSON.parse(JSON.stringify(bloques)), referencias: JSON.parse(JSON.stringify(referencias)), ...extra };
     renderCabeceraEditor();
     renderBloques();
+    renderReferencias();
     showAlert(alertBox, "Guardado.", "success");
   } catch (err) {
     showAlert(alertBox, friendlyError(err), "error");
@@ -557,6 +595,39 @@ async function guardarBloques(extra = {}) {
     btn.disabled = false;
   }
 }
+
+// ---- Referencias bibliográficas (siempre presentes, editables) ----
+
+function renderReferencias() {
+  contenedorReferencias.innerHTML = referencias
+    .map((ref, i) => `
+      <div class="checkbox-row">
+        <input type="text" class="flex-1" data-referencia="${i}" value="${String(ref || "").replace(/"/g, "&quot;")}">
+        <button type="button" class="icon-btn danger" data-quitar-referencia="${i}">🗑️</button>
+      </div>
+    `)
+    .join("");
+}
+
+function sincronizarReferenciasDesdeDOM() {
+  contenedorReferencias.querySelectorAll("[data-referencia]").forEach((el) => {
+    referencias[Number(el.dataset.referencia)] = el.value;
+  });
+}
+
+document.getElementById("agregarReferenciaBtn").addEventListener("click", () => {
+  sincronizarReferenciasDesdeDOM();
+  referencias.push("");
+  renderReferencias();
+});
+
+contenedorReferencias.addEventListener("click", (e) => {
+  const i = e.target.dataset.quitarReferencia;
+  if (i === undefined) return;
+  sincronizarReferenciasDesdeDOM();
+  referencias.splice(Number(i), 1);
+  renderReferencias();
+});
 
 document.getElementById("guardarBorradorBtn").addEventListener("click", () => guardarBloques());
 document.getElementById("marcarFinalBtn").addEventListener("click", () => {
@@ -650,6 +721,112 @@ document.getElementById("inputImagen").addEventListener("change", async (e) => {
   }
 });
 
+// ---------------------------------------------------------------------
+// Importar documento Word (.docx) -> bloques editables (mammoth.js).
+// Los títulos "Heading 1/2/3" de Word se mapean a título1/2/3, los
+// párrafos y listas a bloques de párrafo, las tablas a bloques de tabla,
+// y las imágenes se suben (comprimidas) igual que si se agregaran a mano.
+// Un gráfico nativo de Word (no una simple foto pegada) entra como
+// imagen, no como dato editable — ver aviso en la propia página.
+// ---------------------------------------------------------------------
+
+async function subirImagenImportada(base64, contentType) {
+  const blobOriginal = base64ABlob(base64, contentType);
+  const blobComprimido = await comprimirImagen(blobOriginal);
+  const base64Comprimido = await leerBlobComoBase64(blobComprimido);
+  const llamada = httpsCallable(functions, "subirImagenInforme");
+  const { data } = await llamada({ informeId: informeActual.id, archivoBase64: base64Comprimido, tipo: "image/jpeg" });
+  imagenesCache[data.path] = `data:image/jpeg;base64,${base64Comprimido}`;
+  return { tipo: "imagen", archivo: { nombre: "imagen-importada.jpg", path: data.path, tipo: "image/jpeg", tamano: blobComprimido.size }, pie: "" };
+}
+
+async function convertirNodoABloques(nodo, imagenesCapturadas, destino) {
+  const tag = nodo.tagName.toLowerCase();
+
+  if (tag === "h1") { destino.push({ tipo: "titulo1", texto: nodo.textContent.trim() }); return; }
+  if (tag === "h2") { destino.push({ tipo: "titulo2", texto: nodo.textContent.trim() }); return; }
+  if (/^h[3-6]$/.test(tag)) { destino.push({ tipo: "titulo3", texto: nodo.textContent.trim() }); return; }
+
+  if (tag === "table") {
+    const filasNodo = [...nodo.querySelectorAll("tr")];
+    if (filasNodo.length === 0) return;
+    const columnas = [...filasNodo[0].children].map((c) => c.textContent.trim() || "Columna");
+    const filas = filasNodo.slice(1).map((fila) => [...fila.children].map((c) => c.textContent.trim()));
+    destino.push({ tipo: "tabla", titulo: "", columnas, filas: filas.length ? filas : [columnas.map(() => "")] });
+    return;
+  }
+
+  if (tag === "ul" || tag === "ol") {
+    const texto = [...nodo.querySelectorAll("li")].map((li) => `• ${li.textContent.trim()}`).join("\n");
+    if (texto) destino.push({ tipo: "parrafo", texto });
+    return;
+  }
+
+  // Párrafos (y cualquier otra etiqueta suelta): puede traer una imagen
+  // incrustada, texto, o ambos.
+  const imgEnNodo = nodo.tagName.toLowerCase() === "img" ? nodo : nodo.querySelector?.("img");
+  if (imgEnNodo) {
+    const m = (imgEnNodo.getAttribute("src") || "").match(/PLACEHOLDER_IMG:(\d+)/);
+    const capturada = m && imagenesCapturadas[Number(m[1])];
+    if (capturada) {
+      try {
+        destino.push(await subirImagenImportada(capturada.base64, capturada.contentType));
+      } catch (err) {
+        console.error("No se pudo importar una imagen del documento:", err);
+      }
+    }
+  }
+  const texto = nodo.textContent.trim();
+  if (texto) destino.push({ tipo: "parrafo", texto });
+}
+
+async function importarDocx(file) {
+  const buffer = await file.arrayBuffer();
+  const imagenesCapturadas = [];
+  const opciones = {
+    convertImage: window.mammoth.images.imgElement((image) =>
+      image.read("base64").then((base64) => {
+        const indice = imagenesCapturadas.length;
+        imagenesCapturadas.push({ base64, contentType: image.contentType });
+        return { src: `PLACEHOLDER_IMG:${indice}` };
+      })
+    )
+  };
+  const resultado = await window.mammoth.convertToHtml({ arrayBuffer: buffer }, opciones);
+  const dom = new DOMParser().parseFromString(resultado.value, "text/html");
+
+  const nuevosBloques = [];
+  for (const nodo of [...dom.body.children]) {
+    // eslint-disable-next-line no-await-in-loop
+    await convertirNodoABloques(nodo, imagenesCapturadas, nuevosBloques);
+  }
+  return nuevosBloques;
+}
+
+document.getElementById("importarWordBtn").addEventListener("click", () => document.getElementById("inputWord").click());
+
+document.getElementById("inputWord").addEventListener("change", async (e) => {
+  const file = e.target.files[0];
+  e.target.value = "";
+  if (!file || !informeActual) return;
+  const estadoEl = document.getElementById("importarWordEstado");
+  estadoEl.textContent = "Leyendo el documento...";
+  try {
+    sincronizarBloquesDesdeDOM();
+    const nuevosBloques = await importarDocx(file);
+    if (nuevosBloques.length === 0) {
+      estadoEl.textContent = "No se encontró contenido reconocible en el documento.";
+      return;
+    }
+    bloques.push(...nuevosBloques);
+    renderBloques();
+    estadoEl.textContent = `Se agregaron ${nuevosBloques.length} bloques al final del informe. Revísalos antes de guardar.`;
+  } catch (err) {
+    estadoEl.textContent = "No se pudo importar el documento.";
+    console.error(err);
+  }
+});
+
 // ---- Acciones sobre bloques existentes (mover/borrar/agregar fila-col-dato) ----
 
 contenedorBloques.addEventListener("click", (e) => {
@@ -657,6 +834,13 @@ contenedorBloques.addEventListener("click", (e) => {
   if (!accion) return;
   const i = Number(e.target.dataset.indice);
   if (Number.isNaN(i) || !bloques[i]) return;
+
+  if (accion === "cambiarImagen") {
+    indiceImagenAReemplazar = i;
+    document.getElementById("inputImagenReemplazo").click();
+    return;
+  }
+
   sincronizarBloquesDesdeDOM();
 
   if (accion === "borrar") {
@@ -670,11 +854,52 @@ contenedorBloques.addEventListener("click", (e) => {
   } else if (accion === "agregarColumna") {
     bloques[i].columnas.push(`Columna ${bloques[i].columnas.length + 1}`);
     bloques[i].filas.forEach((fila) => fila.push(""));
+  } else if (accion === "quitarFila") {
+    const fi = Number(e.target.dataset.filaQuitar);
+    if (bloques[i].filas.length > 1) bloques[i].filas.splice(fi, 1);
+  } else if (accion === "quitarColumna") {
+    const ci = Number(e.target.dataset.colQuitar);
+    if (bloques[i].columnas.length > 1) {
+      bloques[i].columnas.splice(ci, 1);
+      bloques[i].filas.forEach((fila) => fila.splice(ci, 1));
+    }
   } else if (accion === "agregarDato") {
     bloques[i].etiquetas.push(`Dato ${bloques[i].etiquetas.length + 1}`);
     bloques[i].valores.push(0);
+  } else if (accion === "quitarDato") {
+    const di = Number(e.target.dataset.datoQuitar);
+    if (bloques[i].etiquetas.length > 1) {
+      bloques[i].etiquetas.splice(di, 1);
+      bloques[i].valores.splice(di, 1);
+    }
   }
   renderBloques();
+});
+
+// ---- Cambiar imagen de un bloque existente ----
+
+let indiceImagenAReemplazar = null;
+
+document.getElementById("inputImagenReemplazo").addEventListener("change", async (e) => {
+  const file = e.target.files[0];
+  e.target.value = "";
+  const i = indiceImagenAReemplazar;
+  indiceImagenAReemplazar = null;
+  if (!file || i === null || !bloques[i] || !informeActual) return;
+  sincronizarBloquesDesdeDOM();
+  const alertBox = document.getElementById("editorAlertBox");
+  clearAlert(alertBox);
+  try {
+    const blob = await comprimirImagen(file);
+    const base64 = await leerBlobComoBase64(blob);
+    const llamada = httpsCallable(functions, "subirImagenInforme");
+    const { data } = await llamada({ informeId: informeActual.id, archivoBase64: base64, tipo: "image/jpeg" });
+    imagenesCache[data.path] = `data:image/jpeg;base64,${base64}`;
+    bloques[i].archivo = { nombre: file.name, path: data.path, tipo: "image/jpeg", tamano: blob.size };
+    renderBloques();
+  } catch (err) {
+    showAlert(alertBox, friendlyError(err), "error");
+  }
 });
 
 // Vista previa en vivo del gráfico (SVG) al escribir sus datos, sin volver
@@ -758,6 +983,9 @@ function renderBloque(bloque, i, numero) {
       <div class="card item-card bloque-card" data-bloque="${i}">
         <label>Imagen</label>
         ${previewHtml}
+        <div class="toolbar mt-4">
+          <button type="button" class="btn secondary btn-auto" data-accion="cambiarImagen" data-indice="${i}" ${dis}>🔄 Cambiar imagen</button>
+        </div>
         <label>Pie de foto</label>
         <input type="text" data-campo="pie" value="${(bloque.pie || "").replace(/"/g, "&quot;")}" ${dis}>
         ${controles}
@@ -766,16 +994,24 @@ function renderBloque(bloque, i, numero) {
   }
 
   if (bloque.tipo === "tabla") {
-    const encabezadosHtml = bloque.columnas.map((col, ci) => `<th><input type="text" data-campo="columna" data-col="${ci}" value="${String(col || "").replace(/"/g, "&quot;")}" ${dis}></th>`).join("");
+    const encabezadosHtml = bloque.columnas.map((col, ci) => `
+      <th>
+        <input type="text" data-campo="columna" data-col="${ci}" value="${String(col || "").replace(/"/g, "&quot;")}" ${dis}>
+        ${bloque.columnas.length > 1 ? `<button type="button" class="icon-btn danger text-xs" data-accion="quitarColumna" data-indice="${i}" data-col-quitar="${ci}" ${dis}>🗑️</button>` : ""}
+      </th>
+    `).join("");
     const filasHtml = bloque.filas.map((fila, fi) => `
-      <tr>${fila.map((celda, ci) => `<td><input type="text" data-campo="celda" data-fila="${fi}" data-col="${ci}" value="${String(celda || "").replace(/"/g, "&quot;")}" ${dis}></td>`).join("")}</tr>
+      <tr>
+        ${fila.map((celda, ci) => `<td><input type="text" data-campo="celda" data-fila="${fi}" data-col="${ci}" value="${String(celda || "").replace(/"/g, "&quot;")}" ${dis}></td>`).join("")}
+        <td>${bloque.filas.length > 1 ? `<button type="button" class="icon-btn danger text-xs" data-accion="quitarFila" data-indice="${i}" data-fila-quitar="${fi}" ${dis}>🗑️</button>` : ""}</td>
+      </tr>
     `).join("");
     return `
       <div class="card item-card bloque-card" data-bloque="${i}">
         <label>Título de la tabla</label>
         <input type="text" data-campo="tituloTabla" value="${(bloque.titulo || "").replace(/"/g, "&quot;")}" ${dis}>
         <table class="tabla-editor">
-          <thead><tr>${encabezadosHtml}</tr></thead>
+          <thead><tr>${encabezadosHtml}<th></th></tr></thead>
           <tbody>${filasHtml}</tbody>
         </table>
         <div class="toolbar mt-4">
@@ -792,6 +1028,7 @@ function renderBloque(bloque, i, numero) {
       <tr>
         <td><input type="text" data-campo="etiqueta" data-fila="${fi}" value="${String(et || "").replace(/"/g, "&quot;")}" ${dis}></td>
         <td><input type="number" data-campo="valor" data-fila="${fi}" value="${bloque.valores[fi] ?? 0}" ${dis}></td>
+        <td>${bloque.etiquetas.length > 1 ? `<button type="button" class="icon-btn danger text-xs" data-accion="quitarDato" data-indice="${i}" data-dato-quitar="${fi}" ${dis}>🗑️</button>` : ""}</td>
       </tr>
     `).join("");
     return `
@@ -805,7 +1042,7 @@ function renderBloque(bloque, i, numero) {
         <label>Título del gráfico</label>
         <input type="text" data-campo="tituloGrafico" value="${(bloque.titulo || "").replace(/"/g, "&quot;")}" ${dis}>
         <table class="grafico-filas">
-          <thead><tr><th>Etiqueta</th><th>Valor</th></tr></thead>
+          <thead><tr><th>Etiqueta</th><th>Valor</th><th></th></tr></thead>
           <tbody>${filasHtml}</tbody>
         </table>
         <div class="toolbar mt-4">
@@ -834,6 +1071,7 @@ function renderBloques() {
 
 document.getElementById("generarPdfBtn").addEventListener("click", async () => {
   sincronizarBloquesDesdeDOM();
+  sincronizarReferenciasDesdeDOM();
   const btn = document.getElementById("generarPdfBtn");
   const alertBox = document.getElementById("editorAlertBox");
   clearAlert(alertBox);
@@ -841,6 +1079,7 @@ document.getElementById("generarPdfBtn").addEventListener("click", async () => {
   btn.disabled = true;
   btn.textContent = "Generando...";
   try {
+    const logoImg = await cargarImagenElemento("assets/img/logo.png").catch(() => null);
     const docPdf = crearDocumentoPDF("portrait");
     let y = agregarPortadaInforme(docPdf, {
       titulo: informeActual.titulo,
@@ -879,7 +1118,8 @@ document.getElementById("generarPdfBtn").addEventListener("click", async () => {
       }
     }
 
-    agregarPiePagina(docPdf);
+    agregarSeccionReferencias(docPdf, referencias);
+    agregarEncabezadoPiePaginaInforme(docPdf, { logoImg, titulo: informeActual.titulo, codigo: informeActual.codigo });
     descargarPDF(docPdf, `informe-${(informeActual.titulo || "informe").toLowerCase().replace(/[^a-z0-9]+/g, "-")}.pdf`);
   } catch (err) {
     showAlert(alertBox, friendlyError(err), "error");

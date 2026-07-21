@@ -193,7 +193,7 @@ function saltoDePaginaSiNecesario(doc, y, alturaNecesaria) {
   const altoPagina = doc.internal.pageSize.getHeight();
   if (y + alturaNecesaria > altoPagina - 20) {
     doc.addPage();
-    return 20;
+    return 24; // deja espacio libre bajo el encabezado de marca (ver agregarEncabezadoPiePaginaInforme)
   }
   return y;
 }
@@ -269,10 +269,92 @@ export function agregarPortadaInforme(doc, { titulo, cliente, identificacionClie
   });
 
   doc.addPage();
-  return 20;
+  return 24;
 }
 
-/** Título de nivel 1/2/3 ya numerado (ej. "2.1. Hallazgos"). */
+/**
+ * Encabezado y pie de página de marca en todas las páginas de contenido
+ * (no en la portada, que ya tiene su propio diseño) — logo de Cinco a la
+ * izquierda, título abreviado tipo "running head" de APA a la derecha, y
+ * en el pie el código de control documental + numeración de página.
+ * `logoImg` es opcional (un HTMLImageElement ya cargado); si no se pasa,
+ * simplemente no se dibuja el logo.
+ */
+export function agregarEncabezadoPiePaginaInforme(doc, { logoImg, titulo, codigo }) {
+  const totalPaginas = doc.internal.getNumberOfPages();
+  const anchoPagina = doc.internal.pageSize.getWidth();
+  const altoPagina = doc.internal.pageSize.getHeight();
+  const tituloBase = (titulo || "").toUpperCase();
+  const tituloCorto = tituloBase.length > 60 ? `${tituloBase.slice(0, 60)}…` : tituloBase;
+
+  for (let i = 2; i <= totalPaginas; i++) {
+    doc.setPage(i);
+
+    if (logoImg) {
+      const altoLogo = 8;
+      const proporcion = (logoImg.naturalWidth || 900) / (logoImg.naturalHeight || 433);
+      doc.addImage(logoImg, "PNG", 12, 7, altoLogo * proporcion, altoLogo);
+    }
+    doc.setFont("times", "bold");
+    doc.setFontSize(8);
+    doc.setTextColor(90);
+    doc.text(tituloCorto, anchoPagina - 12, 11, { align: "right" });
+    doc.setTextColor(0);
+    doc.setDrawColor(...AMBAR);
+    doc.setLineWidth(0.5);
+    doc.line(12, 18, anchoPagina - 12, 18);
+
+    doc.setDrawColor(...AMBAR);
+    doc.setLineWidth(0.5);
+    doc.line(12, altoPagina - 14, anchoPagina - 12, altoPagina - 14);
+    doc.setFont("times", "italic");
+    doc.setFontSize(8.5);
+    doc.setTextColor(90);
+    doc.text(`Cinco S.A.S. · ${codigo || ""}`, 12, altoPagina - 9);
+    doc.setFont("times", "normal");
+    doc.text(`Página ${i - 1} de ${totalPaginas - 1}`, anchoPagina - 12, altoPagina - 9, { align: "right" });
+    doc.setTextColor(0);
+  }
+}
+
+/**
+ * Sección de Referencias en formato APA (orden alfabético, sangría
+ * francesa), siempre en página nueva al final del informe — se agrega
+ * incluso si el usuario no escribió ninguna referencia propia, porque el
+ * arreglo `referencias` siempre trae por defecto las normas técnicas base
+ * de Cinco S.A.S. (ver REFERENCIAS_POR_DEFECTO en informes-libres.js).
+ */
+export function agregarSeccionReferencias(doc, referencias) {
+  const lista = (referencias || []).filter((r) => r && r.trim());
+  if (lista.length === 0) return;
+
+  doc.addPage();
+  const anchoPagina = doc.internal.pageSize.getWidth();
+  let y = 25;
+  doc.setFont("times", "bold");
+  doc.setFontSize(13);
+  doc.text("Referencias", anchoPagina / 2, y, { align: "center" });
+  y += 12;
+
+  doc.setFont("times", "normal");
+  doc.setFontSize(10.5);
+  const anchoContenido = anchoPagina - 24 - 8;
+  const ordenadas = [...lista].sort((a, b) => a.localeCompare(b, "es"));
+  ordenadas.forEach((ref) => {
+    const lineas = doc.splitTextToSize(ref.trim(), anchoContenido);
+    lineas.forEach((linea, i) => {
+      y = saltoDePaginaSiNecesario(doc, y, 6);
+      doc.text(linea, i === 0 ? 12 : 20, y);
+      y += 5.8;
+    });
+    y += 3;
+  });
+}
+
+/** Título de nivel 1/2/3 ya numerado (ej. "2.1. Hallazgos"). Nivel 1
+ * centrado y nivel 2/3 alineados a la izquierda, siguiendo la jerarquía
+ * visual de los niveles de encabezado de APA (adaptada a la numeración
+ * que pidió el usuario, que APA en sí no usa). */
 export function agregarBloqueTitulo(doc, y, nivel, numero, texto) {
   const anchoPagina = doc.internal.pageSize.getWidth();
   const anchoContenido = anchoPagina - 24;
@@ -283,7 +365,11 @@ export function agregarBloqueTitulo(doc, y, nivel, numero, texto) {
   doc.setFontSize(tamanos[nivel] || 11);
   const textoCompleto = numero ? `${numero}. ${texto || ""}` : String(texto || "");
   const lineas = doc.splitTextToSize(textoCompleto, anchoContenido);
-  doc.text(lineas, 12, yActual);
+  if (nivel === 1) {
+    doc.text(lineas, anchoPagina / 2, yActual, { align: "center" });
+  } else {
+    doc.text(lineas, 12, yActual);
+  }
   yActual += lineas.length * ((tamanos[nivel] || 11) / 2.1) + 3;
 
   if (nivel === 1) {

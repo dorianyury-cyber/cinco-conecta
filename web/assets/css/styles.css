@@ -111,6 +111,7 @@ img { max-width: 100%; display: block; }
 .tabla-editor input { margin: 0; }
 .grafico-filas td { padding: 4px; }
 .svg-grafico { width: 100%; height: 160px; margin-top: 8px; }
+.flex-1 { flex: 1; margin: 0; }
 
 /* =========================================================
    Sitio público (vacantes, postular, estado) — mismo lenguaje

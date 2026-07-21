@@ -100,6 +100,22 @@
             <button type="button" class="btn secondary btn-auto" data-agregar="grafico">+ Gráfico</button>
           </div>
           <input type="file" id="inputImagen" accept="image/jpeg,image/png,image/webp" class="hidden">
+          <input type="file" id="inputImagenReemplazo" accept="image/jpeg,image/png,image/webp" class="hidden">
+
+          <hr class="divider">
+          <button type="button" class="btn secondary btn-auto" id="importarWordBtn">📎 Importar documento Word (.docx)</button>
+          <p class="text-muted text-xs mt-4">Convierte un Word existente en bloques editables (títulos, párrafos, tablas e imágenes) al final de este informe. Los gráficos nativos de Word entran como imagen, no como dato editable.</p>
+          <input type="file" id="inputWord" accept=".docx" class="hidden">
+          <p class="text-muted text-xs" id="importarWordEstado"></p>
+        </div>
+
+        <div class="card">
+          <h2>Referencias bibliográficas (APA)</h2>
+          <p class="text-muted text-xs">Se incluyen siempre al final del PDF, en orden alfabético. Ya trae las normas técnicas de Cinco S.A.S. por defecto — agrega, edita o quita las que necesites.</p>
+          <div id="contenedorReferencias"></div>
+          <div class="toolbar mt-4">
+            <button type="button" class="btn secondary btn-auto" id="agregarReferenciaBtn">+ Agregar referencia</button>
+          </div>
         </div>
       </div>
     </main>
@@ -143,6 +159,7 @@
 
   <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mammoth@1.8.0/mammoth.browser.min.js"></script>
   <script type="module" src="js/informes-libres.js"></script>
 </body>
 </html>
