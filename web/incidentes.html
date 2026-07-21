@@ -3,14 +3,14 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Cinco Conecta — Candidatos</title>
+<title>Cinco Conecta — Incidentes</title>
 <link rel="icon" href="assets/img/favicon.png">
 <link rel="stylesheet" href="assets/css/styles.css">
 </head>
 <body>
   <div class="app-shell">
     <aside class="sidebar">
-      <a href="candidatos.html" class="brand">
+      <a href="reconocimientos.html" class="brand">
         <img src="assets/img/logo.png" alt="Cinco S.A.S.">
         <span>Cinco Conecta</span>
       </a>
@@ -35,55 +35,57 @@
 
     <main class="main">
       <header>
-        <h1>👥 Candidatos</h1>
+        <h1>⚠️ Incidentes y casi-accidentes</h1>
       </header>
 
       <div class="card">
-        <div class="toolbar">
-          <select id="filtroVacante">
-            <option value="">Todas las vacantes</option>
+        <h2>Reportar</h2>
+        <form id="incidenteForm">
+          <label for="tipo">Tipo</label>
+          <select id="tipo">
+            <option value="incidente">Incidente</option>
+            <option value="casi_accidente">Casi-accidente</option>
           </select>
-          <button class="btn secondary btn-auto" id="exportarBtn">📊 Exportar a Excel</button>
+
+          <label for="titulo">Título</label>
+          <input type="text" id="titulo" required maxlength="150">
+
+          <label for="lugar">Lugar</label>
+          <input type="text" id="lugar" required maxlength="150">
+
+          <label for="fecha">Fecha</label>
+          <input type="date" id="fecha" required>
+
+          <label for="gravedad">Gravedad</label>
+          <select id="gravedad">
+            <option value="leve">Leve</option>
+            <option value="moderada">Moderada</option>
+            <option value="grave">Grave</option>
+          </select>
+
+          <label for="descripcion">Descripción</label>
+          <textarea id="descripcion" rows="3" required maxlength="2000"></textarea>
+
+          <label for="foto">Foto (opcional, JPG/PNG/WEBP, máx. 5 MB)</label>
+          <input type="file" id="foto" accept=".jpg,.jpeg,.png,.webp">
+
+          <div class="alert" id="alertBox"></div>
+          <button type="submit" class="btn" id="reportarBtn">Reportar</button>
+        </form>
+      </div>
+
+      <div class="card">
+        <div class="toolbar">
+          <h2 class="m-0">Listado</h2>
           <button class="btn secondary btn-auto" id="generarInformeBtn">📄 Generar informe PDF</button>
         </div>
-        <div class="kanban" id="kanban"></div>
+        <div id="listaIncidentes"><p class="text-muted text-center">Cargando...</p></div>
       </div>
     </main>
   </div>
 
-  <div class="modal-backdrop" id="modalBackdrop">
-    <div class="modal">
-      <h2 id="modalNombre">Candidato</h2>
-      <p class="text-muted mt-neg-10" id="modalVacante"></p>
-
-      <label>Contacto</label>
-      <p id="modalContacto" class="mt-4"></p>
-
-      <label>Hoja de vida</label>
-      <p><a href="#" id="modalHojaVida" target="_blank" rel="noopener">Cargando enlace...</a></p>
-
-      <label for="modalEtapa">Etapa</label>
-      <select id="modalEtapa">
-        <option value="recibido">Recibido</option>
-        <option value="preseleccionado">Preseleccionado</option>
-        <option value="entrevista">Entrevista</option>
-        <option value="prueba">Prueba</option>
-        <option value="oferta">Oferta</option>
-        <option value="contratado">Contratado</option>
-        <option value="rechazado">Rechazado</option>
-      </select>
-
-      <label for="modalNotas">Notas internas</label>
-      <textarea id="modalNotas" rows="4"></textarea>
-
-      <div class="alert" id="modalAlert"></div>
-      <button type="button" class="btn" id="guardarCandidatoBtn">Guardar</button>
-      <button type="button" class="btn secondary" id="cerrarModalBtn">Cerrar</button>
-    </div>
-  </div>
-
   <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
-  <script type="module" src="js/candidatos.js"></script>
+  <script type="module" src="js/incidentes.js"></script>
 </body>
 </html>

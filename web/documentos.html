@@ -3,14 +3,14 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Cinco Conecta — Vacantes</title>
+<title>Cinco Conecta — Documentos</title>
 <link rel="icon" href="assets/img/favicon.png">
 <link rel="stylesheet" href="assets/css/styles.css">
 </head>
 <body>
   <div class="app-shell">
     <aside class="sidebar">
-      <a href="candidatos.html" class="brand">
+      <a href="reconocimientos.html" class="brand">
         <img src="assets/img/logo.png" alt="Cinco S.A.S.">
         <span>Cinco Conecta</span>
       </a>
@@ -35,24 +35,46 @@
 
     <main class="main">
       <header>
-        <h1>📋 Vacantes</h1>
+        <h1>📁 Documentos del Sistema de Gestión</h1>
       </header>
 
+      <div class="card solo-admin hidden" id="subirCard">
+        <h2>Subir documento</h2>
+        <form id="subirForm">
+          <label for="titulo">Título</label>
+          <input type="text" id="titulo" required maxlength="150">
+
+          <label for="categoria">Categoría</label>
+          <select id="categoria">
+            <option value="procedimiento">Procedimiento</option>
+            <option value="instructivo">Instructivo</option>
+            <option value="formato">Formato</option>
+          </select>
+
+          <label for="version">Versión</label>
+          <input type="text" id="version" placeholder="Ej: 1.0" maxlength="30">
+
+          <label for="archivo">Archivo (PDF o Word, máx. 5 MB)</label>
+          <input type="file" id="archivo" accept=".pdf,.doc,.docx" required>
+
+          <div class="alert" id="alertBox"></div>
+          <button type="submit" class="btn" id="subirBtn">Subir</button>
+        </form>
+      </div>
+
       <div class="card">
-        <div class="toolbar">
-          <button class="btn btn-auto" id="nuevaVacanteBtn">+ Nueva vacante</button>
-        </div>
+        <h2>Repositorio</h2>
         <table>
           <thead>
             <tr>
               <th>Título</th>
-              <th>Estado</th>
-              <th>Publicada</th>
-              <th>Candidatos</th>
+              <th>Categoría</th>
+              <th>Versión</th>
+              <th>Subido</th>
               <th></th>
             </tr>
           </thead>
-          <tbody id="tablaVacantes">
+          <tbody id="tablaDocumentos">
             <tr><td colspan="5" class="text-muted text-center">Cargando...</td></tr>
           </tbody>
         </table>
@@ -60,34 +82,6 @@
     </main>
   </div>
 
-  <div class="modal-backdrop" id="modalBackdrop">
-    <div class="modal">
-      <h2 id="modalTitulo">Nueva vacante</h2>
-      <form id="vacanteForm">
-        <input type="hidden" id="vacanteId">
-
-        <label for="titulo">Título</label>
-        <input type="text" id="titulo" required maxlength="120">
-
-        <label for="descripcion">Descripción</label>
-        <textarea id="descripcion" rows="3" maxlength="500"></textarea>
-
-        <label for="requisitos">Requisitos</label>
-        <textarea id="requisitos" rows="4" maxlength="1000"></textarea>
-
-        <label for="estado">Estado</label>
-        <select id="estado">
-          <option value="abierta">Abierta</option>
-          <option value="cerrada">Cerrada</option>
-        </select>
-
-        <div class="alert" id="alertBox"></div>
-        <button type="submit" class="btn" id="guardarBtn">Guardar</button>
-        <button type="button" class="btn secondary" id="cancelarBtn">Cancelar</button>
-      </form>
-    </div>
-  </div>
-
-  <script type="module" src="js/vacantes-admin.js"></script>
+  <script type="module" src="js/documentos.js"></script>
 </body>
 </html>

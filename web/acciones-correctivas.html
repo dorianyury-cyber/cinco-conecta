@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Cinco Conecta — Comunicados</title>
+<title>Cinco Conecta — Acciones Correctivas</title>
 <link rel="icon" href="assets/img/favicon.png">
 <link rel="stylesheet" href="assets/css/styles.css">
 </head>
@@ -35,31 +35,37 @@
 
     <main class="main">
       <header>
-        <h1>📢 Comunicados</h1>
+        <h1>✅ Acciones Correctivas (CAPA)</h1>
       </header>
 
-      <div class="card solo-admin hidden" id="publicarCard">
-        <h2>Publicar comunicado</h2>
-        <form id="comunicadoForm">
-          <label for="tituloComunicado">Título</label>
-          <input type="text" id="tituloComunicado" required maxlength="150">
+      <div class="card solo-admin hidden" id="crearCard">
+        <h2>Nueva acción correctiva</h2>
+        <p class="text-muted text-sm" id="origenTexto"></p>
+        <form id="crearForm">
+          <label for="descripcion">Descripción</label>
+          <textarea id="descripcion" rows="3" required maxlength="1000"></textarea>
 
-          <label for="cuerpoComunicado">Contenido</label>
-          <textarea id="cuerpoComunicado" rows="4" required maxlength="2000"></textarea>
+          <label for="responsableUid">Responsable</label>
+          <select id="responsableUid" required></select>
 
-          <label class="checkbox-row">
-            <input type="checkbox" id="fijadoCheck"> Fijar arriba del todo
-          </label>
+          <label for="fechaLimite">Fecha límite</label>
+          <input type="date" id="fechaLimite" required>
 
-          <div class="alert" id="alertBox"></div>
-          <button type="submit" class="btn" id="publicarBtn">Publicar</button>
+          <div class="alert" id="crearAlertBox"></div>
+          <button type="submit" class="btn" id="crearBtn">Crear</button>
         </form>
       </div>
 
-      <div id="feedComunicados"><p class="text-muted text-center">Cargando...</p></div>
+      <div class="card">
+        <div class="toolbar">
+          <h2 class="m-0">Listado</h2>
+          <button class="btn secondary btn-auto" id="exportarBtn">📊 Exportar a Excel</button>
+        </div>
+        <div id="listaAcciones"><p class="text-muted text-center">Cargando...</p></div>
+      </div>
     </main>
   </div>
 
-  <script type="module" src="js/comunicados.js"></script>
+  <script type="module" src="js/acciones-correctivas.js"></script>
 </body>
 </html>

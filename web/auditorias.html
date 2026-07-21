@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cinco Conecta — Auditorías</title>
+<link rel="icon" href="assets/img/favicon.png">
+<link rel="stylesheet" href="assets/css/styles.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <a href="reconocimientos.html" class="brand">
+        <img src="assets/img/logo.png" alt="Cinco S.A.S.">
+        <span>Cinco Conecta</span>
+      </a>
+      <nav>
+        <a href="reconocimientos.html">🙌 Reconocimientos</a>
+        <a href="encuestas.html">📊 Encuestas</a>
+        <a href="comunicados.html">📢 Comunicados</a>
+        <a href="incidentes.html">⚠️ Incidentes</a>
+        <a href="acciones-correctivas.html">✅ Acciones Correctivas</a>
+        <a href="documentos.html">📁 Documentos</a>
+        <a href="auditorias.html">🔍 Auditorías</a>
+        <a href="candidatos.html" class="solo-admin">👥 Candidatos</a>
+        <a href="vacantes-admin.html" class="solo-admin">📋 Vacantes</a>
+        <a href="empleados.html" class="solo-admin">🧑‍💼 Empleados</a>
+      </nav>
+      <div class="spacer"></div>
+      <div class="user-box">
+        <div id="userName">-</div>
+        <button class="btn secondary logout-btn" id="logoutBtn">Cerrar sesión</button>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header>
+        <h1>🔍 Auditorías e Inspecciones</h1>
+      </header>
+
+      <div class="card solo-admin hidden" id="crearCard">
+        <h2>Nueva auditoría/inspección</h2>
+        <form id="crearForm">
+          <label for="titulo">Título</label>
+          <input type="text" id="titulo" required maxlength="150">
+
+          <label for="tipo">Tipo</label>
+          <select id="tipo">
+            <option value="auditoria">Auditoría</option>
+            <option value="inspeccion">Inspección</option>
+          </select>
+
+          <label for="normaISO">Norma</label>
+          <select id="normaISO">
+            <option value="9001">ISO 9001 (Calidad)</option>
+            <option value="14001">ISO 14001 (Ambiental)</option>
+            <option value="45001">ISO 45001 (Seguridad y Salud)</option>
+            <option value="multiple">Varias normas</option>
+          </select>
+
+          <label for="fecha">Fecha</label>
+          <input type="date" id="fecha" required>
+
+          <label for="items">Lista de verificación (un ítem por línea)</label>
+          <textarea id="items" rows="4" required placeholder="¿Se cumple el procedimiento X?"></textarea>
+
+          <div class="alert" id="crearAlertBox"></div>
+          <button type="submit" class="btn" id="crearBtn">Crear</button>
+        </form>
+      </div>
+
+      <div id="listaAuditorias"><p class="text-muted text-center">Cargando...</p></div>
+    </main>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
+  <script type="module" src="js/auditorias.js"></script>
+</body>
+</html>

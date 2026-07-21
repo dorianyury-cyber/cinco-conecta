@@ -80,5 +80,40 @@ service cloud.firestore {
       allow read: if isAdmin();
       allow write: if false;
     }
+
+    // ---- Sistema SGI-HSEQ ----
+
+    // Cualquier empleado ve los incidentes (transparencia de seguridad),
+    // pero se crean solo desde la Cloud Function reportarIncidente (para
+    // poder subir la foto con el Admin SDK sin abrir Storage al público).
+    // Solo el admin los edita/cierra.
+    match /incidentes/{id} {
+      allow read: if isEmpleado();
+      allow create: if false;
+      allow update, delete: if isAdmin();
+    }
+
+    // El admin crea/borra acciones correctivas; el responsable asignado
+    // puede actualizar únicamente su propio avance (estado/evidencia), no
+    // reasignarla ni tocar el resto de campos.
+    match /accionesCorrectivas/{id} {
+      allow read: if isEmpleado();
+      allow create, delete: if isAdmin();
+      allow update: if isAdmin()
+        || (isEmpleado() && resource.data.responsableUid == request.auth.uid
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['estado', 'evidencia']));
+    }
+
+    // El repositorio de documentos lo lee cualquier empleado; se sube solo
+    // desde la Cloud Function subirDocumento (admin).
+    match /documentos/{id} {
+      allow read: if isEmpleado();
+      allow write: if false;
+    }
+
+    match /auditorias/{id} {
+      allow read: if isEmpleado();
+      allow write: if isAdmin();
+    }
   }
 }

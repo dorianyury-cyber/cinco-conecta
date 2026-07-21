@@ -6,6 +6,7 @@ const { onCandidatoEtapaCambiada } = require("./src/notificaciones");
 const { obtenerArchivoBase64 } = require("./src/storage");
 const { invitarEmpleado } = require("./src/empleados");
 const { responderEncuesta } = require("./src/encuestas");
+const { reportarIncidente, subirDocumento } = require("./src/hseq");
 
 exports.enviarPostulacion = enviarPostulacion;
 exports.consultarEstado = consultarEstado;
@@ -13,3 +14,5 @@ exports.onCandidatoEtapaCambiada = onCandidatoEtapaCambiada;
 exports.obtenerArchivoBase64 = obtenerArchivoBase64;
 exports.invitarEmpleado = invitarEmpleado;
 exports.responderEncuesta = responderEncuesta;
+exports.reportarIncidente = reportarIncidente;
+exports.subirDocumento = subirDocumento;
