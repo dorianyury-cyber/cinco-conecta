@@ -12,4 +12,4 @@ export const firebaseConfig = {
 
 // Site key de reCAPTCHA v3 para Firebase App Check (se completa al activar
 // App Check en Firebase Console).
-export const RECAPTCHA_SITE_KEY = "PENDIENTE";
+export const RECAPTCHA_SITE_KEY = "6Ld2gF0tAAAAALXx-nJEFaWMYqKIMZN3DTKHnMOY";
