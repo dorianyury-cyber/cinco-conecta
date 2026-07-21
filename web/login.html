@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cinco Conecta — Ingresar</title>
+<link rel="icon" href="assets/img/favicon.png">
+<link rel="stylesheet" href="assets/css/styles.css">
+</head>
+<body>
+  <div class="auth-page">
+    <div class="auth-card">
+      <div class="brand">
+        <img src="assets/img/logo.png" alt="Cinco S.A.S.">
+        <span>Cinco Conecta</span>
+      </div>
+      <h1>Panel de Talento Humano</h1>
+      <form id="loginForm">
+        <label for="correo">Correo</label>
+        <input type="email" id="correo" required autocomplete="username">
+
+        <label for="password">Contraseña</label>
+        <input type="password" id="password" required autocomplete="current-password">
+
+        <div class="alert" id="alertBox"></div>
+        <button type="submit" class="btn" id="submitBtn">Ingresar</button>
+      </form>
+    </div>
+  </div>
+
+  <script type="module" src="js/login.js"></script>
+</body>
+</html>

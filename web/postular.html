@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Postularme — Cinco S.A.S.</title>
+<link rel="icon" href="assets/img/favicon.png">
+<link rel="stylesheet" href="assets/css/styles.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="container">
+      <a class="brand" href="vacantes.html">
+        <img src="assets/img/logo.png" alt="Cinco S.A.S.">
+        <span>Trabaja con Nosotros</span>
+      </a>
+      <button id="navToggle" aria-label="Abrir menú">☰</button>
+      <nav class="main-nav">
+        <a href="vacantes.html">Vacantes</a>
+        <a href="estado.html">Consultar estado</a>
+        <a href="https://cinco-sas.web.app">Sitio de Cinco S.A.S.</a>
+      </nav>
+    </div>
+  </header>
+
+  <div class="page-banner">
+    <span class="eyebrow">Postulación</span>
+    <h1 id="tituloVacante">Postularme</h1>
+    <p>Completa tus datos y adjunta tu hoja de vida en PDF o Word.</p>
+  </div>
+
+  <section class="public-section">
+    <div class="container">
+      <div class="card">
+        <form id="postularForm">
+          <label for="nombres">Nombres</label>
+          <input type="text" id="nombres" required maxlength="80">
+
+          <label for="apellidos">Apellidos</label>
+          <input type="text" id="apellidos" required maxlength="80">
+
+          <label for="email">Email</label>
+          <input type="email" id="email" required maxlength="120">
+
+          <label for="telefono">Teléfono</label>
+          <input type="tel" id="telefono" required maxlength="20">
+
+          <label for="cedula">Número de cédula</label>
+          <input type="text" id="cedula" required maxlength="20">
+
+          <label for="hojaVida">Hoja de vida (PDF o Word, máx. 5 MB)</label>
+          <input type="file" id="hojaVida" accept=".pdf,.doc,.docx" required>
+
+          <div class="honeypot-field" aria-hidden="true">
+            <label for="sitioWeb">Sitio web</label>
+            <input type="text" id="sitioWeb" tabindex="-1" autocomplete="off">
+          </div>
+
+          <button type="submit" class="btn" id="postularBtn">Enviar postulación</button>
+          <div class="alert" id="postularAlert"></div>
+        </form>
+      </div>
+    </div>
+  </section>
+
+  <footer class="site-footer">
+    Cinco S.A.S. — Construcción, Ingeniería y Consultoría · <span class="anio-actual"></span>
+  </footer>
+
+  <script src="js/site.js"></script>
+  <script type="module" src="js/postular.js"></script>
+</body>
+</html>

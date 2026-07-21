@@ -1,0 +1,14 @@
+rules_version = '2';
+
+// Ningún acceso público ni de cliente a Storage: las hojas de vida se
+// suben y se leen exclusivamente desde Cloud Functions con el Admin SDK
+// (enviarPostulacion / obtenerArchivoBase64), que no están sujetas a estas
+// reglas — así los currículums (datos personales) nunca quedan expuestos
+// por una URL directa de Storage.
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

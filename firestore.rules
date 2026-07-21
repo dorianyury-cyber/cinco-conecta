@@ -1,0 +1,38 @@
+rules_version = '2';
+
+// Cinco Conecta — panel protegido de Cinco S.A.S. (primer módulo: Trabaja
+// con Nosotros). "vacantes" es información pública (ofertas de empleo);
+// "candidatos" contiene datos personales y solo lo puede ver/editar el
+// staff autenticado — nunca acceso público directo (las postulaciones se
+// crean desde la Cloud Function enviarPostulacion, con el Admin SDK, que
+// no pasa por estas reglas).
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function staffDoc() {
+      return get(/databases/$(database)/documents/staff/$(request.auth.uid)).data;
+    }
+
+    function isStaff() {
+      return isSignedIn() && staffDoc().estado == 'activo';
+    }
+
+    match /staff/{uid} {
+      allow get: if isSignedIn() && request.auth.uid == uid;
+      allow list, write: if false;
+    }
+
+    match /vacantes/{id} {
+      allow read: if true;
+      allow write: if isStaff();
+    }
+
+    match /candidatos/{id} {
+      allow read, write: if isStaff();
+    }
+  }
+}
