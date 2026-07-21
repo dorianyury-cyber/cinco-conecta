@@ -228,6 +228,66 @@ function buscarPorEtiqueta(lineas, patrones) {
   return "";
 }
 
+// Para campos largos tipo "Referencia:"/"Objeto:" el valor casi siempre
+// sigue en la(s) línea(s) siguiente(s) (texto que hace salto de línea en
+// el PDF) — se van agregando líneas mientras la última no termine en
+// punto/signo de cierre, hasta un tope de seguridad.
+function buscarCampoMultilinea(lineas, patrones, maxContinuacion = 5) {
+  for (let i = 0; i < lineas.length; i++) {
+    for (const patron of patrones) {
+      const m = lineas[i].match(patron);
+      if (m && m[1] && m[1].trim()) {
+        let valor = m[1].trim();
+        let agregadas = 0;
+        while (!/[.!?]$/.test(valor) && agregadas < maxContinuacion && i + 1 + agregadas < lineas.length) {
+          const siguiente = (lineas[i + 1 + agregadas] || "").trim();
+          if (siguiente.length < 3) break;
+          valor += ` ${siguiente}`;
+          agregadas++;
+        }
+        return valor.replace(/[,;]+$/, "").trim();
+      }
+    }
+  }
+  return "";
+}
+
+// Formato clásico de carta colombiana: "Señores" / "Estimados señores" y,
+// en las líneas siguientes, el nombre del destinatario (cliente), antes de
+// NIT/Ciudad/Dirección — muy común en propuestas/cotizaciones, y el
+// cliente casi nunca aparece con una etiqueta "Cliente:" explícita ahí.
+function buscarClienteTrasSaludo(lineas) {
+  const idx = lineas.findIndex((l) => /^se[ñn]or(es)?\.?$/i.test(l.trim()) || /^estimados?\s+se[ñn]or/i.test(l.trim()));
+  if (idx === -1) return "";
+  for (let j = idx + 1; j < Math.min(idx + 4, lineas.length); j++) {
+    const linea = lineas[j].trim();
+    if (!linea) continue;
+    if (/^nit\b/i.test(linea) || /^c\.?c\.?\b/i.test(linea)) continue;
+    if (/^ciudad$/i.test(linea) || /^direcci[oó]n/i.test(linea)) continue;
+    return linea;
+  }
+  return "";
+}
+
+const PALABRAS_GENERICAS_CLIENTE = [
+  "conjunto", "residencial", "edificio", "urbanizacion", "urbanización", "condominio",
+  "empresa", "compañia", "compañía", "sociedad", "copropiedad", "propiedad", "horizontal",
+  "ph", "s.a.s", "sas", "s.a", "s.a.", "ltda", "e.s.p", "esp", "e.u", "eu"
+];
+
+// El "nombre corto de proyecto" casi nunca aparece escrito como tal en
+// estas propuestas (no hay una etiqueta "Proyecto:") — se sugiere a partir
+// del nombre del cliente, quitando palabras genéricas de razón social,
+// tal como normalmente se nombran los proyectos internamente
+// (Ej. "Conjunto Residencial Siena" -> "SIENA").
+function sugerirProyectoDesdeCliente(cliente) {
+  if (!cliente) return "";
+  const palabras = cliente
+    .split(/\s+/)
+    .filter((p) => p && !PALABRAS_GENERICAS_CLIENTE.includes(p.toLowerCase().replace(/[.,]/g, "")));
+  return palabras.join(" ").toUpperCase();
+}
+
 function adivinarTituloPorTamanoFuente(itemsPrimeraPagina) {
   if (!itemsPrimeraPagina.length) return "";
   let mayor = itemsPrimeraPagina[0];
@@ -243,15 +303,30 @@ function adivinarTituloPorTamanoFuente(itemsPrimeraPagina) {
 }
 
 function extraerCamposDePropuesta(lineas, itemsPrimeraPagina) {
-  const cliente = buscarPorEtiqueta(lineas, [/cliente[:\s]+(.+)/i, /raz[oó]n social[:\s]+(.+)/i, /empresa[:\s]+(.+)/i, /contratante[:\s]+(.+)/i]);
-  const proyecto = buscarPorEtiqueta(lineas, [/proyecto[:\s]+(.+)/i, /objeto(?:\s+del\s+contrato)?[:\s]+(.+)/i]);
-  const identificacion = buscarPorEtiqueta(lineas, [
-    /nit[:\s.]*n?°?\s*([\d.\-]+)/i,
-    /c[eé]dula(?:\s+de\s+ciudadan[ií]a)?[:\s.]*(?:no\.?)?\s*([\d.,]+)/i,
-    /c\.?c\.?[:\s.]*n?°?\s*([\d.,]+)/i
+  let cliente = buscarPorEtiqueta(lineas, [/cliente[:\s]+(.+)/i, /raz[oó]n social[:\s]+(.+)/i, /empresa[:\s]+(.+)/i, /contratante[:\s]+(.+)/i]);
+  if (!cliente) cliente = buscarClienteTrasSaludo(lineas);
+
+  let identificacion = buscarPorEtiqueta(lineas, [
+    /nit[:\s.]*n?°?\s*([\d.]+(?:\s*-\s*\d+)?)/i,
+    /c[eé]dula(?:\s+de\s+ciudadan[ií]a)?[:\s.]*(?:no\.?)?\s*([\d.]+(?:\s*-\s*\d+)?)/i,
+    /c\.?c\.?[:\s.]*n?°?\s*([\d.]+(?:\s*-\s*\d+)?)/i
   ]);
-  let titulo = buscarPorEtiqueta(lineas, [/t[ií]tulo[:\s]+(.+)/i, /propuesta[:\s]+(.+)/i, /asunto[:\s]+(.+)/i]);
+  if (identificacion) identificacion = identificacion.replace(/\s*-\s*/, "-");
+
+  let titulo = buscarCampoMultilinea(lineas, [
+    /referencia[:\s]+(.+)/i,
+    /objeto(?:\s+del\s+contrato)?[:\s]+(.+)/i,
+    /asunto[:\s]+(.+)/i,
+    /t[ií]tulo[:\s]+(.+)/i,
+    /propuesta[:\s]+(.+)/i
+  ]);
+  titulo = titulo.replace(/^cotizaci[oó]n\s+(del?|de\s+la)\s+/i, "");
+  if (titulo) titulo = titulo.charAt(0).toUpperCase() + titulo.slice(1);
   if (!titulo) titulo = adivinarTituloPorTamanoFuente(itemsPrimeraPagina);
+
+  let proyecto = buscarPorEtiqueta(lineas, [/proyecto[:\s]+(.+)/i]);
+  if (!proyecto) proyecto = sugerirProyectoDesdeCliente(cliente);
+
   return { titulo, cliente, proyecto, identificacion };
 }
 
