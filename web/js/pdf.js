@@ -61,8 +61,8 @@ const UMBRAL_COLUMNA_CORTA = 26; // mm — columnas que ya caben solas (fechas, 
  * necesita cada una — si no alcanza, esas absorben el recorte (con salto de
  * línea) en vez de angostar las columnas cortas.
  */
-function calcularAnchosColumna(doc, columnas, filas) {
-  const anchoDisponible = doc.internal.pageSize.getWidth() - 24; // margen izq. 12 + der. 12
+function calcularAnchosColumna(doc, columnas, filas, margenIzq = 12, margenDer = 12) {
+  const anchoDisponible = doc.internal.pageSize.getWidth() - margenIzq - margenDer;
 
   doc.setFont(TABLA_FONT, "bold");
   doc.setFontSize(TABLA_FONT_SIZE);
@@ -126,7 +126,8 @@ function calcularAnchosColumna(doc, columnas, filas) {
  * el plan de actividades) sin perder el cálculo automático de anchos.
  */
 export function agregarTabla(doc, columnas, filas, startY, opciones = {}) {
-  const anchosAutomaticos = calcularAnchosColumna(doc, columnas, filas);
+  const margin = { left: 12, right: 12, bottom: 18, ...opciones.margin };
+  const anchosAutomaticos = calcularAnchosColumna(doc, columnas, filas, margin.left, margin.right);
   const columnStyles = { ...anchosAutomaticos };
   Object.entries(opciones.columnStyles || {}).forEach(([i, estilo]) => {
     columnStyles[i] = { ...columnStyles[i], ...estilo };
@@ -140,7 +141,7 @@ export function agregarTabla(doc, columnas, filas, startY, opciones = {}) {
     headStyles: { fillColor: [31, 39, 50], textColor: 255, fontStyle: "bold", ...opciones.headStyles },
     alternateRowStyles: { fillColor: [244, 245, 247], ...opciones.alternateRowStyles },
     columnStyles,
-    margin: { left: 12, right: 12, bottom: 18 }
+    margin
   });
 }
 
@@ -176,6 +177,12 @@ const AMBAR = [254, 178, 9];
 const AMBAR_OSCURO = [217, 148, 0];
 const NAVY = [31, 39, 50];
 
+// Margen real de Norma APA (1 pulgada = 2.54cm) en todo el informe de
+// formato libre — a diferencia del resto de reportes de la plataforma
+// (auditorías, HSEQ, etc.), que siguen usando 12mm por su propio criterio
+// de espacio optimizado y no cambian con esto.
+const MARGEN_APA = 25.4;
+
 function colorPaleta(i, total) {
   if (total <= 1) return AMBAR;
   const t = i / (total - 1);
@@ -191,9 +198,9 @@ function formatearFechaInforme(fecha) {
 
 function saltoDePaginaSiNecesario(doc, y, alturaNecesaria) {
   const altoPagina = doc.internal.pageSize.getHeight();
-  if (y + alturaNecesaria > altoPagina - 20) {
+  if (y + alturaNecesaria > altoPagina - MARGEN_APA) {
     doc.addPage();
-    return 24; // deja espacio libre bajo el encabezado de marca (ver agregarEncabezadoPiePaginaInforme)
+    return MARGEN_APA; // ya deja espacio de sobra bajo el encabezado de marca (ver agregarEncabezadoPiePaginaInforme)
   }
   return y;
 }
@@ -269,7 +276,7 @@ export function agregarPortadaInforme(doc, { titulo, cliente, identificacionClie
   });
 
   doc.addPage();
-  return 24;
+  return MARGEN_APA;
 }
 
 /**
@@ -338,13 +345,14 @@ export function agregarSeccionReferencias(doc, referencias) {
 
   doc.setFont("times", "normal");
   doc.setFontSize(10.5);
-  const anchoContenido = anchoPagina - 24 - 8;
+  const sangria = 8;
+  const anchoContenido = anchoPagina - MARGEN_APA * 2 - sangria;
   const ordenadas = [...lista].sort((a, b) => a.localeCompare(b, "es"));
   ordenadas.forEach((ref) => {
     const lineas = doc.splitTextToSize(ref.trim(), anchoContenido);
     lineas.forEach((linea, i) => {
       y = saltoDePaginaSiNecesario(doc, y, 6);
-      doc.text(linea, i === 0 ? 12 : 20, y);
+      doc.text(linea, i === 0 ? MARGEN_APA : MARGEN_APA + sangria, y);
       y += 5.8;
     });
     y += 3;
@@ -357,7 +365,7 @@ export function agregarSeccionReferencias(doc, referencias) {
  * que pidió el usuario, que APA en sí no usa). */
 export function agregarBloqueTitulo(doc, y, nivel, numero, texto) {
   const anchoPagina = doc.internal.pageSize.getWidth();
-  const anchoContenido = anchoPagina - 24;
+  const anchoContenido = anchoPagina - MARGEN_APA * 2;
   let yActual = saltoDePaginaSiNecesario(doc, y, 14);
 
   const tamanos = { 1: 14, 2: 12, 3: 11 };
@@ -368,14 +376,14 @@ export function agregarBloqueTitulo(doc, y, nivel, numero, texto) {
   if (nivel === 1) {
     doc.text(lineas, anchoPagina / 2, yActual, { align: "center" });
   } else {
-    doc.text(lineas, 12, yActual);
+    doc.text(lineas, MARGEN_APA, yActual);
   }
   yActual += lineas.length * ((tamanos[nivel] || 11) / 2.1) + 3;
 
   if (nivel === 1) {
     doc.setDrawColor(...AMBAR);
     doc.setLineWidth(0.6);
-    doc.line(12, yActual - 2, 12 + anchoContenido, yActual - 2);
+    doc.line(MARGEN_APA, yActual - 2, MARGEN_APA + anchoContenido, yActual - 2);
     yActual += 3;
   }
   return yActual;
@@ -384,7 +392,7 @@ export function agregarBloqueTitulo(doc, y, nivel, numero, texto) {
 /** Párrafo de texto libre, con salto de página automático línea por línea. */
 export function agregarBloqueParrafo(doc, y, texto) {
   const anchoPagina = doc.internal.pageSize.getWidth();
-  const anchoContenido = anchoPagina - 24;
+  const anchoContenido = anchoPagina - MARGEN_APA * 2;
   doc.setFont("times", "normal");
   doc.setFontSize(10.5);
   const lineas = doc.splitTextToSize(texto || "", anchoContenido);
@@ -392,59 +400,88 @@ export function agregarBloqueParrafo(doc, y, texto) {
   let yActual = y;
   lineas.forEach((linea) => {
     yActual = saltoDePaginaSiNecesario(doc, yActual, alturaLinea);
-    doc.text(linea, 12, yActual);
+    doc.text(linea, MARGEN_APA, yActual);
     yActual += alturaLinea;
   });
   return yActual + 3;
 }
 
 /**
- * Imagen escalada al ancho del contenido preservando proporción, con pie
- * "Figura N." numerado. Es async porque necesita cargar la imagen para leer
- * sus dimensiones naturales antes de calcular el alto final.
+ * Imagen escalada al ancho del contenido preservando proporción. Estilo
+ * APA de figura: "Figura N. {título}" ARRIBA de la imagen (no abajo), y
+ * si hay una nota/fuente ("pie"), va debajo en cursiva. Es async porque
+ * necesita cargar la imagen para leer sus dimensiones naturales antes de
+ * calcular el alto final.
  */
-export function agregarBloqueImagen(doc, y, dataUrl, pie, contadores) {
+export function agregarBloqueImagen(doc, y, dataUrl, titulo, pie, contadores) {
   return new Promise((resolve) => {
     const img = new Image();
     img.onload = () => {
       const anchoPagina = doc.internal.pageSize.getWidth();
-      const anchoContenido = anchoPagina - 24;
+      const anchoContenido = anchoPagina - MARGEN_APA * 2;
       const escala = Math.min(anchoContenido / img.naturalWidth, 1);
       const anchoFinal = img.naturalWidth * escala;
       const altoFinal = img.naturalHeight * escala;
-      let yActual = saltoDePaginaSiNecesario(doc, y, altoFinal + 12);
-      const x = 12 + (anchoContenido - anchoFinal) / 2;
+
+      contadores.figura += 1;
+      let yActual = saltoDePaginaSiNecesario(doc, y, altoFinal + 20);
+      doc.setFont("times", "bold");
+      doc.setFontSize(10);
+      doc.text(`Figura ${contadores.figura}.${titulo ? " " + titulo : ""}`, MARGEN_APA, yActual);
+      yActual += 6;
+
+      const x = MARGEN_APA + (anchoContenido - anchoFinal) / 2;
       const formato = dataUrl.startsWith("data:image/png") ? "PNG" : "JPEG";
       doc.addImage(dataUrl, formato, x, yActual, anchoFinal, altoFinal);
       yActual += altoFinal + 5;
 
-      contadores.figura += 1;
-      doc.setFont("times", "italic");
-      doc.setFontSize(9);
-      doc.text(`Figura ${contadores.figura}.${pie ? " " + pie : ""}`, anchoPagina / 2, yActual, { align: "center" });
-      resolve(yActual + 6);
+      if (pie) {
+        doc.setFont("times", "italic");
+        doc.setFontSize(9);
+        const lineasPie = doc.splitTextToSize(pie, anchoContenido);
+        doc.text(lineasPie, MARGEN_APA, yActual);
+        yActual += lineasPie.length * 4.5 + 3;
+      }
+      resolve(yActual + 4);
     };
     img.onerror = () => resolve(y);
     img.src = dataUrl;
   });
 }
 
-/** Tabla con rótulo "Tabla N." numerado, reutilizando agregarTabla tal cual. */
-export function agregarBloqueTabla(doc, y, columnas, filas, tituloTabla, contadores) {
+/**
+ * Tabla con rótulo "Tabla N." numerado ARRIBA (título tal cual, sin
+ * alterarlo) y, si hay nota/fuente ("pie"), debajo en cursiva — estilo
+ * APA de tabla. Reutiliza agregarTabla tal cual, solo con los márgenes de
+ * este informe (1 pulgada) en vez de los 12mm del resto de la plataforma.
+ */
+export function agregarBloqueTabla(doc, y, columnas, filas, tituloTabla, pie, contadores) {
   contadores.tabla += 1;
   let yActual = saltoDePaginaSiNecesario(doc, y, 20);
   doc.setFont("times", "bold");
   doc.setFontSize(10);
-  doc.text(`Tabla ${contadores.tabla}.${tituloTabla ? " " + tituloTabla : ""}`, 12, yActual);
+  doc.text(`Tabla ${contadores.tabla}.${tituloTabla ? " " + tituloTabla : ""}`, MARGEN_APA, yActual);
   yActual += 5;
-  agregarTabla(doc, columnas, filas, yActual);
-  return doc.lastAutoTable.finalY + 8;
+  agregarTabla(doc, columnas, filas, yActual, { margin: { left: MARGEN_APA, right: MARGEN_APA, bottom: MARGEN_APA } });
+  yActual = doc.lastAutoTable.finalY + 4;
+
+  if (pie) {
+    const anchoPagina = doc.internal.pageSize.getWidth();
+    const anchoContenido = anchoPagina - MARGEN_APA * 2;
+    doc.setFont("times", "italic");
+    doc.setFontSize(9);
+    const lineasPie = doc.splitTextToSize(pie, anchoContenido);
+    yActual = saltoDePaginaSiNecesario(doc, yActual, lineasPie.length * 4.5);
+    doc.text(lineasPie, MARGEN_APA, yActual);
+    yActual += lineasPie.length * 4.5 + 3;
+  }
+  return yActual + 4;
 }
 
 /** Gráfico de barras vectorial (una sola serie etiqueta/valor). */
 export function agregarBloqueGraficoBarras(doc, y, { titulo, etiquetas, valores }, contadores) {
   const anchoPagina = doc.internal.pageSize.getWidth();
-  const anchoContenido = anchoPagina - 24;
+  const anchoContenido = anchoPagina - MARGEN_APA * 2;
   const altoGrafico = 60;
   let yActual = saltoDePaginaSiNecesario(doc, y, altoGrafico + 20);
   const yBase = yActual + altoGrafico;
@@ -452,11 +489,11 @@ export function agregarBloqueGraficoBarras(doc, y, { titulo, etiquetas, valores 
   const anchoBarra = anchoContenido / valores.length;
 
   doc.setDrawColor(180, 180, 180);
-  doc.line(12, yBase, 12 + anchoContenido, yBase);
+  doc.line(MARGEN_APA, yBase, MARGEN_APA + anchoContenido, yBase);
 
   valores.forEach((valor, i) => {
     const alturaBarra = (valor / maxValor) * (altoGrafico - 12);
-    const x = 12 + i * anchoBarra + anchoBarra * 0.15;
+    const x = MARGEN_APA + i * anchoBarra + anchoBarra * 0.15;
     const anchoBarraReal = anchoBarra * 0.7;
     doc.setFillColor(...colorPaleta(i, valores.length));
     doc.rect(x, yBase - alturaBarra, anchoBarraReal, alturaBarra, "F");
@@ -477,16 +514,16 @@ export function agregarBloqueGraficoBarras(doc, y, { titulo, etiquetas, valores 
 /** Gráfico de líneas vectorial (una sola serie etiqueta/valor). */
 export function agregarBloqueGraficoLineas(doc, y, { titulo, etiquetas, valores }, contadores) {
   const anchoPagina = doc.internal.pageSize.getWidth();
-  const anchoContenido = anchoPagina - 24;
+  const anchoContenido = anchoPagina - MARGEN_APA * 2;
   const altoGrafico = 60;
   let yActual = saltoDePaginaSiNecesario(doc, y, altoGrafico + 20);
   const yBase = yActual + altoGrafico;
   const maxValor = Math.max(...valores, 1);
   const paso = valores.length > 1 ? anchoContenido / (valores.length - 1) : 0;
-  const puntos = valores.map((v, i) => ({ x: 12 + i * paso, y: yBase - (v / maxValor) * (altoGrafico - 12) }));
+  const puntos = valores.map((v, i) => ({ x: MARGEN_APA + i * paso, y: yBase - (v / maxValor) * (altoGrafico - 12) }));
 
   doc.setDrawColor(180, 180, 180);
-  doc.line(12, yBase, 12 + anchoContenido, yBase);
+  doc.line(MARGEN_APA, yBase, MARGEN_APA + anchoContenido, yBase);
 
   doc.setDrawColor(...AMBAR_OSCURO);
   doc.setLineWidth(0.8);

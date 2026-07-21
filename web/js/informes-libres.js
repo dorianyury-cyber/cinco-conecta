@@ -647,11 +647,15 @@ function sincronizarBloquesDesdeDOM() {
       const el = campo("texto");
       if (el) b.texto = el.value;
     } else if (b.tipo === "imagen") {
-      const el = campo("pie");
-      if (el) b.pie = el.value;
+      const pieEl = campo("pie");
+      if (pieEl) b.pie = pieEl.value;
+      const tituloEl = campo("tituloImagen");
+      if (tituloEl) b.titulo = tituloEl.value;
     } else if (b.tipo === "tabla") {
       const tituloEl = campo("tituloTabla");
       if (tituloEl) b.titulo = tituloEl.value;
+      const pieEl = campo("pieTabla");
+      if (pieEl) b.pie = pieEl.value;
       wrapper.querySelectorAll('[data-campo="columna"]').forEach((el) => { b.columnas[Number(el.dataset.col)] = el.value; });
       wrapper.querySelectorAll('[data-campo="celda"]').forEach((el) => { b.filas[Number(el.dataset.fila)][Number(el.dataset.col)] = el.value; });
     } else if (b.tipo === "grafico") {
@@ -693,7 +697,7 @@ function agregarBloque(tipo) {
     return;
   }
   if (tipo === "tabla") {
-    bloques.push({ tipo: "tabla", titulo: "", columnas: ["Columna 1", "Columna 2"], filas: [["", ""]] });
+    bloques.push({ tipo: "tabla", titulo: "", pie: "", columnas: ["Columna 1", "Columna 2"], filas: [["", ""]] });
   } else if (tipo === "grafico") {
     bloques.push({ tipo: "grafico", tipoGrafico: "barras", titulo: "", etiquetas: ["Dato 1"], valores: [0] });
   } else {
@@ -714,7 +718,7 @@ document.getElementById("inputImagen").addEventListener("change", async (e) => {
     const llamada = httpsCallable(functions, "subirImagenInforme");
     const { data } = await llamada({ informeId: informeActual.id, archivoBase64: base64, tipo: "image/jpeg" });
     imagenesCache[data.path] = `data:image/jpeg;base64,${base64}`;
-    bloques.push({ tipo: "imagen", archivo: { nombre: file.name, path: data.path, tipo: "image/jpeg", tamano: blob.size }, pie: "" });
+    bloques.push({ tipo: "imagen", archivo: { nombre: file.name, path: data.path, tipo: "image/jpeg", tamano: blob.size }, titulo: "", pie: "" });
     renderBloques();
   } catch (err) {
     showAlert(alertBox, friendlyError(err), "error");
@@ -730,6 +734,25 @@ document.getElementById("inputImagen").addEventListener("change", async (e) => {
 // imagen, no como dato editable — ver aviso en la propia página.
 // ---------------------------------------------------------------------
 
+// Detecta líneas tipo "Imagen 6. Gráfica del comportamiento..." o
+// "Tabla 2: Resumen..." (título/caption, normalmente ANTES de la imagen o
+// tabla) y "Fuente: ..."/"Nota: ..." (nota al pie, normalmente DESPUÉS) —
+// el número que ya traía el Word se descarta porque el PDF pone el suyo
+// propio (Figura N./Tabla N. autonumerado), solo se conserva el texto
+// descriptivo.
+const PATRON_CAPTION = /^(imagen|figura|tabla)\s*\.?\s*\d*\.?\s*[:.]?\s*(.+)$/i;
+const PATRON_FUENTE = /^(fuente|nota)\s*[:.]\s*(.+)$/i;
+
+function extraerCaption(texto) {
+  const m = (texto || "").trim().match(PATRON_CAPTION);
+  return m ? m[2].trim() : "";
+}
+
+function extraerFuente(texto) {
+  const m = (texto || "").trim().match(PATRON_FUENTE);
+  return m ? m[2].trim() : "";
+}
+
 async function subirImagenImportada(base64, contentType) {
   const blobOriginal = base64ABlob(base64, contentType);
   const blobComprimido = await comprimirImagen(blobOriginal);
@@ -737,49 +760,19 @@ async function subirImagenImportada(base64, contentType) {
   const llamada = httpsCallable(functions, "subirImagenInforme");
   const { data } = await llamada({ informeId: informeActual.id, archivoBase64: base64Comprimido, tipo: "image/jpeg" });
   imagenesCache[data.path] = `data:image/jpeg;base64,${base64Comprimido}`;
-  return { tipo: "imagen", archivo: { nombre: "imagen-importada.jpg", path: data.path, tipo: "image/jpeg", tamano: blobComprimido.size }, pie: "" };
+  return { tipo: "imagen", archivo: { nombre: "imagen-importada.jpg", path: data.path, tipo: "image/jpeg", tamano: blobComprimido.size }, titulo: "", pie: "" };
 }
 
-async function convertirNodoABloques(nodo, imagenesCapturadas, destino) {
-  const tag = nodo.tagName.toLowerCase();
-
-  if (tag === "h1") { destino.push({ tipo: "titulo1", texto: nodo.textContent.trim() }); return; }
-  if (tag === "h2") { destino.push({ tipo: "titulo2", texto: nodo.textContent.trim() }); return; }
-  if (/^h[3-6]$/.test(tag)) { destino.push({ tipo: "titulo3", texto: nodo.textContent.trim() }); return; }
-
-  if (tag === "table") {
-    const filasNodo = [...nodo.querySelectorAll("tr")];
-    if (filasNodo.length === 0) return;
-    const columnas = [...filasNodo[0].children].map((c) => c.textContent.trim() || "Columna");
-    const filas = filasNodo.slice(1).map((fila) => [...fila.children].map((c) => c.textContent.trim()));
-    destino.push({ tipo: "tabla", titulo: "", columnas, filas: filas.length ? filas : [columnas.map(() => "")] });
-    return;
-  }
-
-  if (tag === "ul" || tag === "ol") {
-    const texto = [...nodo.querySelectorAll("li")].map((li) => `• ${li.textContent.trim()}`).join("\n");
-    if (texto) destino.push({ tipo: "parrafo", texto });
-    return;
-  }
-
-  // Párrafos (y cualquier otra etiqueta suelta): puede traer una imagen
-  // incrustada, texto, o ambos.
-  const imgEnNodo = nodo.tagName.toLowerCase() === "img" ? nodo : nodo.querySelector?.("img");
-  if (imgEnNodo) {
-    const m = (imgEnNodo.getAttribute("src") || "").match(/PLACEHOLDER_IMG:(\d+)/);
-    const capturada = m && imagenesCapturadas[Number(m[1])];
-    if (capturada) {
-      try {
-        destino.push(await subirImagenImportada(capturada.base64, capturada.contentType));
-      } catch (err) {
-        console.error("No se pudo importar una imagen del documento:", err);
-      }
-    }
-  }
-  const texto = nodo.textContent.trim();
-  if (texto) destino.push({ tipo: "parrafo", texto });
-}
-
+/**
+ * A diferencia de un simple recorrido nodo-por-nodo, aquí se necesita
+ * "mirar" el párrafo anterior y siguiente a una imagen/tabla para
+ * encontrar su título y su fuente — por eso recibe el arreglo completo de
+ * nodos + el índice actual, en vez de un solo nodo. Cuando el párrafo
+ * ANTERIOR resulta ser el título, se saca (pop) del arreglo de bloques ya
+ * armado (ahí quedó como un párrafo suelto en la vuelta anterior); el
+ * párrafo SIGUIENTE que resulta ser la fuente se marca en `saltar` para
+ * que la vuelta futura no lo vuelva a agregar como párrafo aparte.
+ */
 async function importarDocx(file) {
   const buffer = await file.arrayBuffer();
   const imagenesCapturadas = [];
@@ -794,12 +787,81 @@ async function importarDocx(file) {
   };
   const resultado = await window.mammoth.convertToHtml({ arrayBuffer: buffer }, opciones);
   const dom = new DOMParser().parseFromString(resultado.value, "text/html");
+  const nodos = [...dom.body.children];
 
   const nuevosBloques = [];
-  for (const nodo of [...dom.body.children]) {
-    // eslint-disable-next-line no-await-in-loop
-    await convertirNodoABloques(nodo, imagenesCapturadas, nuevosBloques);
+  const saltar = new Set();
+
+  function quitarCaptionAnterior(idx) {
+    const anterior = (nodos[idx - 1]?.textContent || "").trim();
+    const caption = extraerCaption(anterior);
+    if (!caption) return "";
+    const ultimo = nuevosBloques[nuevosBloques.length - 1];
+    if (ultimo && ultimo.tipo === "parrafo" && ultimo.texto === anterior) nuevosBloques.pop();
+    return caption;
   }
+
+  function marcarFuenteSiguiente(idx) {
+    const siguiente = (nodos[idx + 1]?.textContent || "").trim();
+    const fuente = extraerFuente(siguiente);
+    if (fuente) saltar.add(idx + 1);
+    return fuente;
+  }
+
+  for (let idx = 0; idx < nodos.length; idx++) {
+    if (saltar.has(idx)) continue;
+    const nodo = nodos[idx];
+    const tag = nodo.tagName.toLowerCase();
+
+    if (tag === "h1") { nuevosBloques.push({ tipo: "titulo1", texto: nodo.textContent.trim() }); continue; }
+    if (tag === "h2") { nuevosBloques.push({ tipo: "titulo2", texto: nodo.textContent.trim() }); continue; }
+    if (/^h[3-6]$/.test(tag)) { nuevosBloques.push({ tipo: "titulo3", texto: nodo.textContent.trim() }); continue; }
+
+    if (tag === "ul" || tag === "ol") {
+      const texto = [...nodo.querySelectorAll("li")].map((li) => `• ${li.textContent.trim()}`).join("\n");
+      if (texto) nuevosBloques.push({ tipo: "parrafo", texto });
+      continue;
+    }
+
+    if (tag === "table") {
+      const filasNodo = [...nodo.querySelectorAll("tr")];
+      if (filasNodo.length === 0) continue;
+      const columnas = [...filasNodo[0].children].map((c) => c.textContent.trim() || "Columna");
+      const filas = filasNodo.slice(1).map((fila) => [...fila.children].map((c) => c.textContent.trim()));
+      const tituloTabla = quitarCaptionAnterior(idx);
+      const pieTabla = marcarFuenteSiguiente(idx);
+      nuevosBloques.push({ tipo: "tabla", titulo: tituloTabla, pie: pieTabla, columnas, filas: filas.length ? filas : [columnas.map(() => "")] });
+      continue;
+    }
+
+    // Párrafos (y cualquier otra etiqueta suelta): puede traer una imagen
+    // incrustada. Cualquier texto que NO sea la imagen misma (elementos
+    // superpuestos como cuadros de texto flotantes de Word encima/debajo
+    // de la foto) se ignora a propósito — solo se usa el texto del propio
+    // párrafo que contiene la imagen si además trae contenido normal.
+    const imgEnNodo = tag === "img" ? nodo : nodo.querySelector?.("img");
+    if (imgEnNodo) {
+      const m = (imgEnNodo.getAttribute("src") || "").match(/PLACEHOLDER_IMG:(\d+)/);
+      const capturada = m && imagenesCapturadas[Number(m[1])];
+      if (capturada) {
+        const tituloImagen = quitarCaptionAnterior(idx);
+        const pieImagen = marcarFuenteSiguiente(idx);
+        try {
+          const bloqueImg = await subirImagenImportada(capturada.base64, capturada.contentType);
+          bloqueImg.titulo = tituloImagen;
+          bloqueImg.pie = pieImagen;
+          nuevosBloques.push(bloqueImg);
+        } catch (err) {
+          console.error("No se pudo importar una imagen del documento:", err);
+        }
+      }
+      continue;
+    }
+
+    const texto = nodo.textContent.trim();
+    if (texto) nuevosBloques.push({ tipo: "parrafo", texto });
+  }
+
   return nuevosBloques;
 }
 
@@ -981,12 +1043,13 @@ function renderBloque(bloque, i, numero) {
     }
     return `
       <div class="card item-card bloque-card" data-bloque="${i}">
-        <label>Imagen</label>
+        <label>Título de la imagen (va arriba, como "Figura N. Título")</label>
+        <input type="text" data-campo="tituloImagen" value="${(bloque.titulo || "").replace(/"/g, "&quot;")}" ${dis}>
         ${previewHtml}
         <div class="toolbar mt-4">
           <button type="button" class="btn secondary btn-auto" data-accion="cambiarImagen" data-indice="${i}" ${dis}>🔄 Cambiar imagen</button>
         </div>
-        <label>Pie de foto</label>
+        <label>Nota / fuente (va debajo, ej. "Fuente: Elaboración propia")</label>
         <input type="text" data-campo="pie" value="${(bloque.pie || "").replace(/"/g, "&quot;")}" ${dis}>
         ${controles}
       </div>
@@ -1018,6 +1081,8 @@ function renderBloque(bloque, i, numero) {
           <button type="button" class="btn secondary btn-auto" data-accion="agregarFila" data-indice="${i}" ${dis}>+ Fila</button>
           <button type="button" class="btn secondary btn-auto" data-accion="agregarColumna" data-indice="${i}" ${dis}>+ Columna</button>
         </div>
+        <label>Nota / fuente (va debajo, ej. "Fuente: Elaboración propia")</label>
+        <input type="text" data-campo="pieTabla" value="${(bloque.pie || "").replace(/"/g, "&quot;")}" ${dis}>
         ${controles}
       </div>
     `;
@@ -1107,9 +1172,9 @@ document.getElementById("generarPdfBtn").addEventListener("click", async () => {
           dataUrl = await obtenerArchivoComoDataUrl(b.archivo.path);
           imagenesCache[b.archivo.path] = dataUrl;
         }
-        y = await agregarBloqueImagen(docPdf, y, dataUrl, b.pie, contadores);
+        y = await agregarBloqueImagen(docPdf, y, dataUrl, b.titulo, b.pie, contadores);
       } else if (b.tipo === "tabla") {
-        y = agregarBloqueTabla(docPdf, y, b.columnas, b.filas, b.titulo, contadores);
+        y = agregarBloqueTabla(docPdf, y, b.columnas, b.filas, b.titulo, b.pie, contadores);
       } else if (b.tipo === "grafico") {
         const datos = { titulo: b.titulo, etiquetas: b.etiquetas, valores: b.valores };
         if (b.tipoGrafico === "lineas") y = agregarBloqueGraficoLineas(docPdf, y, datos, contadores);
