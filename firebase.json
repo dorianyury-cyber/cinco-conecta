@@ -34,6 +34,12 @@
         "headers": [
           { "key": "Cache-Control", "value": "no-cache, max-age=0, must-revalidate" }
         ]
+      },
+      {
+        "source": "**/*.@(png|jpg|jpeg|svg|webp|gif|ico)",
+        "headers": [
+          { "key": "Cache-Control", "value": "public, max-age=300, must-revalidate" }
+        ]
       }
     ]
   },
