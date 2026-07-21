@@ -152,9 +152,19 @@ service cloud.firestore {
             && resource.data.autorUid == request.auth.uid
             && resource.data.estado == 'borrador'
             && request.resource.data.autorUid == resource.data.autorUid
-            && request.resource.data.creadoEn == resource.data.creadoEn);
+            && request.resource.data.creadoEn == resource.data.creadoEn
+            && request.resource.data.codigo == resource.data.codigo);
       allow delete: if isAdmin()
         || (isEmpleado() && resource.data.autorUid == request.auth.uid && resource.data.estado == 'borrador');
+    }
+
+    // Contador atómico para el código de control documental (INT-{año}-{consecutivo}),
+    // compartido entre informesLibres e informesPlantilla — misma naturaleza de
+    // documento (informe de interventoría), una sola secuencia por año. Cualquier
+    // empleado puede incrementarlo porque cualquiera puede crear un informe libre;
+    // mismo nivel de confianza que auditorias/accionesCorrectivas.
+    match /contadoresCodigo/{anio} {
+      allow read, write: if isEmpleado();
     }
   }
 }

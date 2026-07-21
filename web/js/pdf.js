@@ -209,7 +209,7 @@ export function crearContadoresInforme() {
  * Fecha/Elaborado por) estilo ISO 9001. Termina la página y devuelve el
  * "y" inicial (20) para que el contenido empiece en una página nueva.
  */
-export function agregarPortadaInforme(doc, { titulo, cliente, proyecto, codigo, version, autor, fecha }) {
+export function agregarPortadaInforme(doc, { titulo, cliente, identificacionCliente, proyecto, codigo, version, autor, fecha }) {
   const anchoPagina = doc.internal.pageSize.getWidth();
   let y = 42;
 
@@ -232,7 +232,8 @@ export function agregarPortadaInforme(doc, { titulo, cliente, proyecto, codigo, 
   doc.setFont("times", "normal");
   doc.setFontSize(12);
   if (cliente) {
-    doc.text(`Cliente: ${cliente}`, anchoPagina / 2, y, { align: "center" });
+    const sufijoId = identificacionCliente ? ` (${identificacionCliente})` : "";
+    doc.text(`Cliente: ${cliente}${sufijoId}`, anchoPagina / 2, y, { align: "center" });
     y += 6.5;
   }
   if (proyecto) {

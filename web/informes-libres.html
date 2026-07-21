@@ -49,6 +49,7 @@
           <table>
             <thead>
               <tr>
+                <th>Código</th>
                 <th>Título</th>
                 <th>Cliente</th>
                 <th>Autor</th>
@@ -58,7 +59,7 @@
               </tr>
             </thead>
             <tbody id="tablaInformes">
-              <tr><td colspan="6" class="text-muted text-center">Cargando...</td></tr>
+              <tr><td colspan="7" class="text-muted text-center">Cargando...</td></tr>
             </tbody>
           </table>
         </div>
@@ -106,6 +107,11 @@
   <div class="modal-backdrop" id="modalBackdrop">
     <div class="modal">
       <h2 id="modalTitulo">Nuevo informe</h2>
+
+      <button type="button" class="btn secondary btn-auto" id="cargarPropuestaBtn">📄 Cargar propuesta en PDF</button>
+      <input type="file" id="inputPropuestaPdf" accept="application/pdf" class="hidden">
+      <p class="text-muted text-xs mt-4" id="propuestaEstado"></p>
+
       <form id="metaForm">
         <label for="metaTitulo">Título</label>
         <input type="text" id="metaTitulo" required maxlength="200">
@@ -114,14 +120,16 @@
         <input type="text" id="metaCliente" required maxlength="150" list="clientesConocidos">
         <datalist id="clientesConocidos"></datalist>
 
+        <label for="metaIdentificacion">NIT o Cédula del cliente</label>
+        <input type="text" id="metaIdentificacion" maxlength="30">
+
         <label for="metaProyecto">Proyecto</label>
         <input type="text" id="metaProyecto" maxlength="150">
 
-        <label for="metaCodigo">Código (control documental)</label>
-        <input type="text" id="metaCodigo" maxlength="60" placeholder="Ej: INT-2026-001">
-
         <label for="metaVersion">Versión</label>
         <input type="text" id="metaVersion" maxlength="20" placeholder="1.0">
+
+        <p class="text-muted text-xs">El código de control documental (Ej: INT-2026-001) se asigna automáticamente al guardar.</p>
 
         <div class="alert" id="metaAlertBox"></div>
         <div class="toolbar">

@@ -226,12 +226,13 @@ let informesGenerados = [];
 
 function renderInformesGenerados() {
   if (informesGenerados.length === 0) {
-    tablaInformes.innerHTML = '<tr><td colspan="4" class="text-muted text-center">Aún no hay informes generados.</td></tr>';
+    tablaInformes.innerHTML = '<tr><td colspan="5" class="text-muted text-center">Aún no hay informes generados.</td></tr>';
     return;
   }
   tablaInformes.innerHTML = informesGenerados
     .map((i) => `
       <tr>
+        <td>${i.codigo || "-"}</td>
         <td><b>${i.plantillaNombre || "-"}</b></td>
         <td>${i.cliente || "-"}</td>
         <td>${i.creadoEn ? formatDate(i.creadoEn) : "-"} · ${i.generadoPorNombre || ""}</td>
@@ -245,7 +246,7 @@ onSnapshot(query(collection(db, "informesPlantilla"), orderBy("creadoEn", "desc"
   informesGenerados = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
   renderInformesGenerados();
 }, (err) => {
-  tablaInformes.innerHTML = `<tr><td colspan="4" class="text-muted text-center">${friendlyError(err)}</td></tr>`;
+  tablaInformes.innerHTML = `<tr><td colspan="5" class="text-muted text-center">${friendlyError(err)}</td></tr>`;
 });
 
 tablaInformes.addEventListener("click", async (e) => {

@@ -1,6 +1,6 @@
 import {
   collection, onSnapshot, query, orderBy, addDoc, updateDoc, deleteDoc, doc,
-  serverTimestamp, getDocs, where
+  serverTimestamp, runTransaction
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import { httpsCallable } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-functions.js";
 import {
@@ -12,6 +12,9 @@ import {
   agregarBloqueImagen, agregarBloqueTabla, agregarBloqueGraficoBarras, agregarBloqueGraficoLineas,
   agregarBloqueGraficoPastel, agregarPiePagina, descargarPDF, crearContadoresInforme
 } from "./pdf.js";
+import * as pdfjsLib from "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.6.82/build/pdf.min.mjs";
+
+pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.6.82/build/pdf.worker.min.mjs";
 
 const { user, perfil } = await requireAuth();
 wireLogoutButton();
@@ -165,6 +168,94 @@ function calcularNumeracionBloques(bloques) {
 }
 
 // ---------------------------------------------------------------------
+// Código de control documental (INT-{año}-{consecutivo}) — se asigna solo
+// una vez, al crear el informe, mediante un contador atómico compartido
+// con generarInformePlantilla (misma secuencia para los dos tipos de
+// informe, porque documentalmente son el mismo tipo de registro). Nunca
+// se vuelve a pedir a mano ni se puede repetir.
+// ---------------------------------------------------------------------
+
+async function generarCodigoInforme() {
+  const anio = new Date().getFullYear();
+  const contadorRef = doc(db, "contadoresCodigo", String(anio));
+  return runTransaction(db, async (tx) => {
+    const snap = await tx.get(contadorRef);
+    const siguiente = (snap.exists() ? snap.data().ultimo : 0) + 1;
+    tx.set(contadorRef, { ultimo: siguiente });
+    return `INT-${anio}-${String(siguiente).padStart(3, "0")}`;
+  });
+}
+
+// ---------------------------------------------------------------------
+// Cargar propuesta en PDF: extrae el texto (pdfjs-dist, 100% en el
+// navegador) y adivina título/cliente/identificación/proyecto por
+// palabras clave — es una ayuda de mejor esfuerzo, no una lectura exacta;
+// el usuario siempre revisa/edita los campos antes de guardar.
+// ---------------------------------------------------------------------
+
+async function extraerTextoPdf(file) {
+  const buffer = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({ data: buffer }).promise;
+  const lineas = [];
+  let itemsPrimeraPagina = [];
+  for (let i = 1; i <= pdf.numPages; i++) {
+    const pagina = await pdf.getPage(i);
+    const contenido = await pagina.getTextContent();
+    if (i === 1) itemsPrimeraPagina = contenido.items;
+    let lineaActual = "";
+    let yActual = null;
+    contenido.items.forEach((item) => {
+      const y = item.transform[5];
+      if (yActual !== null && Math.abs(y - yActual) > 2) {
+        if (lineaActual.trim()) lineas.push(lineaActual.trim());
+        lineaActual = "";
+      }
+      lineaActual += `${item.str} `;
+      yActual = y;
+    });
+    if (lineaActual.trim()) lineas.push(lineaActual.trim());
+  }
+  return { lineas, itemsPrimeraPagina };
+}
+
+function buscarPorEtiqueta(lineas, patrones) {
+  for (const linea of lineas) {
+    for (const patron of patrones) {
+      const m = linea.match(patron);
+      if (m && m[1] && m[1].trim()) return m[1].trim().replace(/[.,;]+$/, "");
+    }
+  }
+  return "";
+}
+
+function adivinarTituloPorTamanoFuente(itemsPrimeraPagina) {
+  if (!itemsPrimeraPagina.length) return "";
+  let mayor = itemsPrimeraPagina[0];
+  let alturaMayor = Math.hypot(mayor.transform[2], mayor.transform[3]);
+  itemsPrimeraPagina.forEach((item) => {
+    const altura = Math.hypot(item.transform[2], item.transform[3]);
+    if (altura > alturaMayor && item.str.trim().length > 3) {
+      mayor = item;
+      alturaMayor = altura;
+    }
+  });
+  return mayor.str.trim();
+}
+
+function extraerCamposDePropuesta(lineas, itemsPrimeraPagina) {
+  const cliente = buscarPorEtiqueta(lineas, [/cliente[:\s]+(.+)/i, /raz[oó]n social[:\s]+(.+)/i, /empresa[:\s]+(.+)/i, /contratante[:\s]+(.+)/i]);
+  const proyecto = buscarPorEtiqueta(lineas, [/proyecto[:\s]+(.+)/i, /objeto(?:\s+del\s+contrato)?[:\s]+(.+)/i]);
+  const identificacion = buscarPorEtiqueta(lineas, [
+    /nit[:\s.]*n?°?\s*([\d.\-]+)/i,
+    /c[eé]dula(?:\s+de\s+ciudadan[ií]a)?[:\s.]*(?:no\.?)?\s*([\d.,]+)/i,
+    /c\.?c\.?[:\s.]*n?°?\s*([\d.,]+)/i
+  ]);
+  let titulo = buscarPorEtiqueta(lineas, [/t[ií]tulo[:\s]+(.+)/i, /propuesta[:\s]+(.+)/i, /asunto[:\s]+(.+)/i]);
+  if (!titulo) titulo = adivinarTituloPorTamanoFuente(itemsPrimeraPagina);
+  return { titulo, cliente, proyecto, identificacion };
+}
+
+// ---------------------------------------------------------------------
 // Estado
 // ---------------------------------------------------------------------
 
@@ -187,12 +278,13 @@ const metaAlertBox = document.getElementById("metaAlertBox");
 
 function renderListaInformes() {
   if (informes.length === 0) {
-    tablaInformes.innerHTML = '<tr><td colspan="6" class="text-muted text-center">Aún no hay informes.</td></tr>';
+    tablaInformes.innerHTML = '<tr><td colspan="7" class="text-muted text-center">Aún no hay informes.</td></tr>';
   } else {
     tablaInformes.innerHTML = informes.map((inf) => {
       const puedeBorrar = esAdmin || (inf.autorUid === uid && inf.estado === "borrador");
       return `
         <tr>
+          <td>${inf.codigo || "-"}</td>
           <td><b>${inf.titulo}</b></td>
           <td>${inf.cliente || "-"}</td>
           <td>${inf.autorNombre || "-"}</td>
@@ -215,7 +307,7 @@ onSnapshot(query(collection(db, "informesLibres"), orderBy("creadoEn", "desc")),
   informes = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
   renderListaInformes();
 }, (err) => {
-  tablaInformes.innerHTML = `<tr><td colspan="6" class="text-muted text-center">${friendlyError(err)}</td></tr>`;
+  tablaInformes.innerHTML = `<tr><td colspan="7" class="text-muted text-center">${friendlyError(err)}</td></tr>`;
 });
 
 tablaInformes.addEventListener("click", async (e) => {
@@ -247,14 +339,40 @@ function abrirModalMeta(modo, informe) {
   document.getElementById("modalTitulo").textContent = modo === "crear" ? "Nuevo informe" : "Editar datos del informe";
   document.getElementById("metaTitulo").value = informe?.titulo || "";
   document.getElementById("metaCliente").value = informe?.cliente || "";
+  document.getElementById("metaIdentificacion").value = informe?.identificacionCliente || "";
   document.getElementById("metaProyecto").value = informe?.proyecto || "";
-  document.getElementById("metaCodigo").value = informe?.codigo || "";
   document.getElementById("metaVersion").value = informe?.version || "1.0";
+  document.getElementById("propuestaEstado").textContent = "";
   modalBackdrop.classList.add("open");
 }
 
 document.getElementById("nuevoInformeBtn").addEventListener("click", () => abrirModalMeta("crear"));
 document.getElementById("metaCancelarBtn").addEventListener("click", () => modalBackdrop.classList.remove("open"));
+
+document.getElementById("cargarPropuestaBtn").addEventListener("click", () => document.getElementById("inputPropuestaPdf").click());
+
+document.getElementById("inputPropuestaPdf").addEventListener("change", async (e) => {
+  const file = e.target.files[0];
+  e.target.value = "";
+  if (!file) return;
+  const estadoEl = document.getElementById("propuestaEstado");
+  estadoEl.textContent = "Leyendo el PDF...";
+  try {
+    const { lineas, itemsPrimeraPagina } = await extraerTextoPdf(file);
+    const campos = extraerCamposDePropuesta(lineas, itemsPrimeraPagina);
+    if (campos.titulo) document.getElementById("metaTitulo").value = campos.titulo;
+    if (campos.cliente) document.getElementById("metaCliente").value = campos.cliente;
+    if (campos.identificacion) document.getElementById("metaIdentificacion").value = campos.identificacion;
+    if (campos.proyecto) document.getElementById("metaProyecto").value = campos.proyecto;
+    const detectados = Object.entries(campos).filter(([, v]) => v).map(([k]) => k);
+    estadoEl.textContent = detectados.length
+      ? `Detectado automáticamente: ${detectados.join(", ")}. Revisa y corrige antes de guardar.`
+      : "No se detectó ningún dato automáticamente — completa los campos a mano.";
+  } catch (err) {
+    estadoEl.textContent = "No se pudo leer el PDF. Completa los campos a mano.";
+    console.error(err);
+  }
+});
 
 document.getElementById("metaForm").addEventListener("submit", async (e) => {
   e.preventDefault();
@@ -265,23 +383,16 @@ document.getElementById("metaForm").addEventListener("submit", async (e) => {
     const datos = {
       titulo: document.getElementById("metaTitulo").value.trim(),
       cliente: document.getElementById("metaCliente").value.trim(),
+      identificacionCliente: document.getElementById("metaIdentificacion").value.trim(),
       proyecto: document.getElementById("metaProyecto").value.trim(),
-      codigo: document.getElementById("metaCodigo").value.trim(),
       version: document.getElementById("metaVersion").value.trim() || "1.0"
     };
 
-    if (datos.codigo) {
-      const dupSnap = await getDocs(query(collection(db, "informesLibres"), where("codigo", "==", datos.codigo)));
-      const otroConMismoCodigo = dupSnap.docs.some((d) => d.id !== informeActual?.id);
-      if (otroConMismoCodigo && !confirm(`Ya existe otro informe con el código "${datos.codigo}". ¿Continuar de todas formas?`)) {
-        btn.disabled = false;
-        return;
-      }
-    }
-
     if (modoMeta === "crear") {
+      const codigo = await generarCodigoInforme();
       const ref = await addDoc(collection(db, "informesLibres"), {
         ...datos,
+        codigo,
         autorUid: uid,
         autorNombre: perfil.nombre || "Empleado",
         fecha: hoyStr(),
@@ -291,7 +402,7 @@ document.getElementById("metaForm").addEventListener("submit", async (e) => {
         actualizadoEn: serverTimestamp()
       });
       modalBackdrop.classList.remove("open");
-      abrirEditor({ id: ref.id, ...datos, autorUid: uid, autorNombre: perfil.nombre, fecha: hoyStr(), estado: "borrador", bloques: [] });
+      abrirEditor({ id: ref.id, ...datos, codigo, autorUid: uid, autorNombre: perfil.nombre, fecha: hoyStr(), estado: "borrador", bloques: [] });
     } else {
       await updateDoc(doc(db, "informesLibres", informeActual.id), datos);
       informeActual = { ...informeActual, ...datos };
@@ -333,8 +444,9 @@ document.getElementById("volverListaBtn").addEventListener("click", () => {
 
 function renderCabeceraEditor() {
   document.getElementById("tituloInformeEditor").textContent = informeActual.titulo;
+  const identificacionTexto = informeActual.identificacionCliente ? ` (${informeActual.identificacionCliente})` : "";
   document.getElementById("metaInformeEditor").textContent =
-    `${informeActual.cliente || "-"} · ${informeActual.proyecto || "-"} · Código: ${informeActual.codigo || "-"} · v${informeActual.version || "1.0"} · ${informeActual.autorNombre || ""}`;
+    `${informeActual.cliente || "-"}${identificacionTexto} · ${informeActual.proyecto || "-"} · Código: ${informeActual.codigo || "-"} · v${informeActual.version || "1.0"} · ${informeActual.autorNombre || ""}`;
 
   const badge = document.getElementById("estadoBadge");
   badge.textContent = informeActual.estado === "final" ? "Final" : "Borrador";
@@ -658,6 +770,7 @@ document.getElementById("generarPdfBtn").addEventListener("click", async () => {
     let y = agregarPortadaInforme(docPdf, {
       titulo: informeActual.titulo,
       cliente: informeActual.cliente,
+      identificacionCliente: informeActual.identificacionCliente,
       proyecto: informeActual.proyecto,
       codigo: informeActual.codigo,
       version: informeActual.version,

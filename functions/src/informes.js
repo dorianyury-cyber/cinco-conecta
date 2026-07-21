@@ -31,6 +31,22 @@ async function requireAdmin(request) {
 
 // snake_case/camelCase -> "Title Case", solo para sugerir una etiqueta legible;
 // el admin puede renombrarla luego con actualizarCamposPlantilla.
+// Código de control documental único INT-{año}-{consecutivo}, compartido con
+// informesLibres (misma secuencia: son el mismo tipo de documento, un informe
+// de interventoría, solo cambia si el formato es propio del cliente o libre).
+// El contador se incrementa dentro de una transacción para que dos informes
+// generados al mismo tiempo nunca puedan recibir el mismo código.
+async function generarCodigoInforme() {
+  const anio = new Date().getFullYear();
+  const contadorRef = admin.firestore().collection("contadoresCodigo").doc(String(anio));
+  return admin.firestore().runTransaction(async (tx) => {
+    const snap = await tx.get(contadorRef);
+    const siguiente = (snap.exists ? snap.data().ultimo : 0) + 1;
+    tx.set(contadorRef, { ultimo: siguiente });
+    return `INT-${anio}-${String(siguiente).padStart(3, "0")}`;
+  });
+}
+
 function prettificarEtiqueta(clave) {
   const separada = String(clave)
     .replace(/_/g, " ")
@@ -195,11 +211,13 @@ const generarInformePlantilla = onCall({ enforceAppCheck: true }, async (request
   const informeRef = admin.firestore().collection("informesPlantilla").doc();
   const path = `informesPlantilla/${informeRef.id}/informe.docx`;
   await admin.storage().bucket().file(path).save(bufferGenerado, { contentType: MIME_DOCX });
+  const codigo = await generarCodigoInforme();
 
   await informeRef.set({
     plantillaId,
     plantillaNombre: plantilla.nombre,
     cliente: plantilla.cliente,
+    codigo,
     valores,
     archivoGenerado: { nombre: `${plantilla.nombre || "informe"}.docx`.slice(0, 150), path, tipo: MIME_DOCX, tamano: bufferGenerado.length },
     generadoPorNombre: perfil.nombre || "Empleado",
