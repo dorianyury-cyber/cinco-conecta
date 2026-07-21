@@ -196,6 +196,16 @@ function formatearFechaInforme(fecha) {
   return d.toLocaleDateString("es-CO", { year: "numeric", month: "long", day: "numeric" });
 }
 
+/** Fecha corta DD/MM/AAAA, como la lleva la portada (colofón ciudad + fecha). */
+function formatearFechaCorta(fecha) {
+  if (!fecha) return "";
+  const d = /^\d{4}-\d{2}-\d{2}$/.test(fecha) ? new Date(`${fecha}T12:00:00`) : new Date(fecha);
+  if (Number.isNaN(d.getTime())) return String(fecha);
+  const dd = String(d.getDate()).padStart(2, "0");
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  return `${dd}/${mm}/${d.getFullYear()}`;
+}
+
 function saltoDePaginaSiNecesario(doc, y, alturaNecesaria) {
   const altoPagina = doc.internal.pageSize.getHeight();
   if (y + alturaNecesaria > altoPagina - MARGEN_APA) {
@@ -205,55 +215,184 @@ function saltoDePaginaSiNecesario(doc, y, alturaNecesaria) {
   return y;
 }
 
-/** Nuevo contador { figura, tabla } — pásalo a todas las funciones de bloque de un mismo informe. */
+/**
+ * Nuevo contador de figuras/tablas + las listas de entradas de la Tabla de
+ * Contenido e Índices de Imágenes/Tablas (se van llenando con la página
+ * real en la que cae cada título/figura/tabla a medida que se dibuja el
+ * cuerpo del informe) — pásalo a todas las funciones de bloque de un mismo
+ * informe.
+ */
 export function crearContadoresInforme() {
-  return { figura: 0, tabla: 0 };
+  return { figura: 0, tabla: 0, indiceTitulos: [], indiceFiguras: [], indiceTablas: [] };
+}
+
+// ---------------------------------------------------------------------
+// Tabla de Contenido e Índices de Imágenes/Tablas (estilo Word: título
+// centrado, lista con puntos guía hasta el número de página a la derecha).
+//
+// jsPDF no permite "insertar" páginas en la mitad del documento — addPage()
+// siempre agrega al final — así que estas páginas se generan en dos
+// pasadas: 1) una pasada de solo-conteo (con un documento de descarte) para
+// saber cuántas páginas ocupará cada sección ANTES de dibujar el cuerpo, así
+// se pueden reservar esas páginas justo después de la portada; 2) una vez
+// dibujado el cuerpo real (que ya sabe en qué página real cayó cada
+// título/figura/tabla), se vuelve atrás con doc.setPage() a rellenar esas
+// páginas reservadas — pasando `opciones.nuevaPagina` para que en vez de
+// doc.addPage() se use doc.setPage() al siguiente hueco ya reservado. Como
+// el algoritmo de paginado es el mismo en las dos pasadas y las entradas no
+// cambian, consume exactamente la misma cantidad de páginas las dos veces.
+// ---------------------------------------------------------------------
+
+const ANCHO_COLUMNA_PAGINA_INDICE = 10; // mm reservados para el número de página (hasta 3 dígitos) — fijo en ambas pasadas para que el partido de línea sea idéntico
+
+function truncarConPuntosSuspensivos(doc, texto, anchoMax) {
+  if (doc.getTextWidth(texto) <= anchoMax) return texto;
+  let t = texto;
+  while (t.length > 4 && doc.getTextWidth(`${t}…`) > anchoMax) t = t.slice(0, -1);
+  return `${t.trimEnd()}…`;
+}
+
+function dibujarEntradaIndice(doc, { x, y, anchoPagina, texto, pagina, anchoDisponibleTexto }) {
+  const etiquetaFinal = truncarConPuntosSuspensivos(doc, texto, anchoDisponibleTexto);
+  doc.text(etiquetaFinal, x, y);
+
+  const anchoTextoReal = doc.getTextWidth(etiquetaFinal);
+  const xPuntosInicio = x + anchoTextoReal + 2;
+  const xPuntosFin = anchoPagina - MARGEN_APA - ANCHO_COLUMNA_PAGINA_INDICE;
+  if (xPuntosFin > xPuntosInicio) {
+    const anchoPunto = doc.getTextWidth(".") || 1;
+    const numPuntos = Math.max(0, Math.floor((xPuntosFin - xPuntosInicio) / anchoPunto));
+    doc.setTextColor(150);
+    doc.text(".".repeat(numPuntos), xPuntosInicio, y);
+    doc.setTextColor(0);
+  }
+  doc.setFont("times", "normal");
+  doc.text(String(pagina ?? ""), anchoPagina - MARGEN_APA, y, { align: "right" });
 }
 
 /**
- * Portada del informe de formato libre: título/cliente/proyecto centrados
- * (estilo APA) + una mini-tabla de control documental (Código/Versión/
- * Fecha/Elaborado por) estilo ISO 9001. Termina la página y devuelve el
- * "y" inicial (20) para que el contenido empiece en una página nueva.
+ * Cuenta cuántas páginas ocupará una función de listado (Tabla de
+ * Contenido o Índice de Imágenes/Tablas) dibujándola en un documento de
+ * descarte — ver nota arriba sobre por qué se necesita esta pasada previa.
  */
-export function agregarPortadaInforme(doc, { titulo, cliente, identificacionCliente, proyecto, codigo, version, autor, fecha }) {
+export function contarPaginasDeListado(dibujarFn) {
+  const scratch = crearDocumentoPDF("portrait");
+  dibujarFn(scratch);
+  return scratch.internal.getNumberOfPages();
+}
+
+/**
+ * Tabla de Contenido jerárquica (nivel 1/2/3, igual que la numeración de
+ * los bloques de título). `entradas` es `contadores.indiceTitulos` (o, para
+ * la pasada de conteo, una lista equivalente sin página real todavía).
+ * `opciones.nuevaPagina` (por defecto doc.addPage()) permite reutilizar
+ * esta misma función tanto para contar páginas como para rellenar las ya
+ * reservadas — ver nota arriba.
+ */
+export function agregarTablaDeContenido(doc, entradas, opciones = {}) {
+  if (!entradas || !entradas.length) return;
+  const nuevaPagina = opciones.nuevaPagina || (() => doc.addPage());
   const anchoPagina = doc.internal.pageSize.getWidth();
-  let y = 42;
+  const altoPagina = doc.internal.pageSize.getHeight();
+  const anchoContenido = anchoPagina - MARGEN_APA * 2;
+  let y = MARGEN_APA;
 
   doc.setFont("times", "bold");
-  doc.setFontSize(20);
-  doc.text("Cinco S.A.S.", anchoPagina / 2, y, { align: "center" });
+  doc.setFontSize(13);
+  doc.text("Tabla de Contenido", anchoPagina / 2, y, { align: "center" });
+  y += 12;
 
-  y += 6;
-  doc.setDrawColor(...AMBAR);
-  doc.setLineWidth(1);
-  doc.line(anchoPagina / 2 - 28, y, anchoPagina / 2 + 28, y);
+  const sangriaPorNivel = { 1: 0, 2: 8, 3: 16 };
+  const tamanoPorNivel = { 1: 10.5, 2: 10, 3: 9.5 };
+  const alturaLinea = 6.5;
 
-  y += 18;
+  entradas.forEach((e) => {
+    if (y + alturaLinea > altoPagina - MARGEN_APA) { nuevaPagina(); y = MARGEN_APA; }
+    const sangria = sangriaPorNivel[e.nivel] || 0;
+    doc.setFont("times", e.nivel === 1 ? "bold" : "normal");
+    doc.setFontSize(tamanoPorNivel[e.nivel] || 10);
+    dibujarEntradaIndice(doc, {
+      x: MARGEN_APA + sangria,
+      y,
+      anchoPagina,
+      texto: `${e.numero}. ${e.texto || ""}`,
+      pagina: e.pagina,
+      anchoDisponibleTexto: anchoContenido - sangria - ANCHO_COLUMNA_PAGINA_INDICE - 4
+    });
+    y += alturaLinea;
+  });
+}
+
+/**
+ * Índice de Imágenes o Índice de Tablas (lista plana, sin niveles) — se
+ * usa para ambos según `etiqueta` ("Imagen"/"Tabla"). Mismo mecanismo de
+ * `opciones.nuevaPagina` que agregarTablaDeContenido.
+ */
+export function agregarIndiceElementos(doc, tituloSeccion, entradas, etiqueta, opciones = {}) {
+  if (!entradas || !entradas.length) return;
+  const nuevaPagina = opciones.nuevaPagina || (() => doc.addPage());
+  const anchoPagina = doc.internal.pageSize.getWidth();
+  const altoPagina = doc.internal.pageSize.getHeight();
+  const anchoContenido = anchoPagina - MARGEN_APA * 2;
+  let y = MARGEN_APA;
+
   doc.setFont("times", "bold");
-  doc.setFontSize(16);
-  const lineasTitulo = doc.splitTextToSize(titulo || "Informe de interventoría", anchoPagina - 50);
+  doc.setFontSize(13);
+  doc.text(tituloSeccion, anchoPagina / 2, y, { align: "center" });
+  y += 12;
+
+  const alturaLinea = 6.5;
+  doc.setFontSize(10);
+
+  entradas.forEach((e) => {
+    if (y + alturaLinea > altoPagina - MARGEN_APA) { nuevaPagina(); y = MARGEN_APA; }
+    doc.setFont("times", "normal");
+    dibujarEntradaIndice(doc, {
+      x: MARGEN_APA,
+      y,
+      anchoPagina,
+      texto: `${etiqueta} ${e.numero}.${e.titulo ? " " + e.titulo : ""}`,
+      pagina: e.pagina,
+      anchoDisponibleTexto: anchoContenido - ANCHO_COLUMNA_PAGINA_INDICE - 4
+    });
+    y += alturaLinea;
+  });
+}
+
+/**
+ * Portada del informe de formato libre: título centrado en mayúsculas con
+ * una regla debajo, "Elaboró"/"Aprobó" centrados, la mini-tabla de control
+ * documental (Código/Versión/Fecha/Elaborado por, estilo ISO 9001) y un
+ * colofón de ciudad + fecha al pie. Termina la página y devuelve el "y"
+ * inicial para que el contenido empiece en una página nueva.
+ */
+export function agregarPortadaInforme(doc, { titulo, autor, aprobador, ciudad, fecha, codigo, version }) {
+  const anchoPagina = doc.internal.pageSize.getWidth();
+  const altoPagina = doc.internal.pageSize.getHeight();
+  const anchoContenido = anchoPagina - MARGEN_APA * 2;
+  let y = 60;
+
+  doc.setFont("times", "bold");
+  doc.setFontSize(18);
+  const lineasTitulo = doc.splitTextToSize((titulo || "Informe").toUpperCase(), anchoContenido);
   doc.text(lineasTitulo, anchoPagina / 2, y, { align: "center" });
-  y += lineasTitulo.length * 7 + 8;
+  y += lineasTitulo.length * 7.5 + 5;
 
+  doc.setDrawColor(...AMBAR);
+  doc.setLineWidth(0.8);
+  doc.line(anchoPagina / 2 - 35, y, anchoPagina / 2 + 35, y);
+
+  y += 20;
   doc.setFont("times", "normal");
   doc.setFontSize(12);
-  if (cliente) {
-    const sufijoId = identificacionCliente ? ` (${identificacionCliente})` : "";
-    doc.text(`Cliente: ${cliente}${sufijoId}`, anchoPagina / 2, y, { align: "center" });
-    y += 6.5;
-  }
-  if (proyecto) {
-    doc.text(`Proyecto: ${proyecto}`, anchoPagina / 2, y, { align: "center" });
-    y += 6.5;
+  doc.text(`Elaboró: ${autor || "—"}`, anchoPagina / 2, y, { align: "center" });
+
+  if (aprobador) {
+    y += 14;
+    doc.text(`Aprobó: ${aprobador}`, anchoPagina / 2, y, { align: "center" });
   }
 
-  y += 8;
-  doc.setFont("times", "italic");
-  doc.setFontSize(10.5);
-  doc.text(`Elaborado por ${autor || "—"} · ${formatearFechaInforme(fecha)}`, anchoPagina / 2, y, { align: "center" });
-
-  const altoPagina = doc.internal.pageSize.getHeight();
+  y += 24;
   const filasControl = [
     ["Código", codigo || "—"],
     ["Versión", version || "1.0"],
@@ -262,18 +401,28 @@ export function agregarPortadaInforme(doc, { titulo, cliente, identificacionClie
   ];
   const anchoTabla = 100;
   const xTabla = (anchoPagina - anchoTabla) / 2;
-  const yTabla = altoPagina - 65;
+  const altoFila = 8;
+  const altoTabla = filasControl.length * altoFila + 6;
 
   doc.setDrawColor(200, 200, 200);
-  doc.rect(xTabla, yTabla - 6, anchoTabla, filasControl.length * 7 + 6);
-  doc.setFontSize(9);
+  doc.setLineWidth(0.3);
+  doc.roundedRect(xTabla, y, anchoTabla, altoTabla, 2, 2);
+  doc.setFontSize(9.5);
   filasControl.forEach(([etiqueta, valor], i) => {
-    const yFila = yTabla + i * 7;
+    const yFila = y + 8 + i * altoFila;
     doc.setFont("times", "bold");
-    doc.text(etiqueta, xTabla + 4, yFila);
+    doc.setTextColor(30, 30, 30);
+    doc.text(etiqueta, xTabla + 5, yFila);
     doc.setFont("times", "normal");
-    doc.text(String(valor), xTabla + 36, yFila);
+    doc.setTextColor(37, 99, 235);
+    doc.text(String(valor), xTabla + 38, yFila);
   });
+  doc.setTextColor(0);
+  y += altoTabla;
+
+  doc.setFont("times", "bold");
+  doc.setFontSize(11);
+  doc.text(`${ciudad || "Neiva"} ${formatearFechaCorta(fecha)}`.trim(), anchoPagina - MARGEN_APA, altoPagina - MARGEN_APA, { align: "right" });
 
   doc.addPage();
   return MARGEN_APA;
@@ -363,10 +512,11 @@ export function agregarSeccionReferencias(doc, referencias) {
  * centrado y nivel 2/3 alineados a la izquierda, siguiendo la jerarquía
  * visual de los niveles de encabezado de APA (adaptada a la numeración
  * que pidió el usuario, que APA en sí no usa). */
-export function agregarBloqueTitulo(doc, y, nivel, numero, texto) {
+export function agregarBloqueTitulo(doc, y, nivel, numero, texto, contadores) {
   const anchoPagina = doc.internal.pageSize.getWidth();
   const anchoContenido = anchoPagina - MARGEN_APA * 2;
   let yActual = saltoDePaginaSiNecesario(doc, y, 14);
+  if (contadores) contadores.indiceTitulos.push({ nivel, numero, texto, pagina: doc.internal.getNumberOfPages() });
 
   const tamanos = { 1: 14, 2: 12, 3: 11 };
   doc.setFont("times", nivel === 3 ? "bolditalic" : "bold");
@@ -429,6 +579,8 @@ export function agregarBloqueImagen(doc, y, dataUrl, titulo, pie, contadores, et
 
       const numero = etiqueta === "Tabla" ? (contadores.tabla += 1) : (contadores.figura += 1);
       let yActual = saltoDePaginaSiNecesario(doc, y, altoFinal + 20);
+      const entradaIndice = { numero, titulo: titulo || "", pagina: doc.internal.getNumberOfPages() };
+      if (etiqueta === "Tabla") contadores.indiceTablas.push(entradaIndice); else contadores.indiceFiguras.push(entradaIndice);
       doc.setFont("times", "bold");
       doc.setFontSize(10);
       doc.text(`${etiqueta} ${numero}.${titulo ? " " + titulo : ""}`, centroX, yActual, { align: "center" });
@@ -464,6 +616,7 @@ export function agregarBloqueTabla(doc, y, columnas, filas, tituloTabla, pie, co
   const centroX = anchoPagina / 2;
   contadores.tabla += 1;
   let yActual = saltoDePaginaSiNecesario(doc, y, 20);
+  contadores.indiceTablas.push({ numero: contadores.tabla, titulo: tituloTabla || "", pagina: doc.internal.getNumberOfPages() });
   doc.setFont("times", "bold");
   doc.setFontSize(10);
   doc.text(`Tabla ${contadores.tabla}.${tituloTabla ? " " + tituloTabla : ""}`, centroX, yActual, { align: "center" });
@@ -489,6 +642,7 @@ export function agregarBloqueGraficoBarras(doc, y, { titulo, etiquetas, valores 
   const anchoContenido = anchoPagina - MARGEN_APA * 2;
   const altoGrafico = 60;
   let yActual = saltoDePaginaSiNecesario(doc, y, altoGrafico + 20);
+  const paginaEntrada = doc.internal.getNumberOfPages();
   const yBase = yActual + altoGrafico;
   const maxValor = Math.max(...valores, 1);
   const anchoBarra = anchoContenido / valores.length;
@@ -510,6 +664,7 @@ export function agregarBloqueGraficoBarras(doc, y, { titulo, etiquetas, valores 
 
   let yFinal = yBase + 10;
   contadores.figura += 1;
+  contadores.indiceFiguras.push({ numero: contadores.figura, titulo: titulo || "", pagina: paginaEntrada });
   doc.setFont("times", "italic");
   doc.setFontSize(9);
   doc.text(`Figura ${contadores.figura}.${titulo ? " " + titulo : ""}`, anchoPagina / 2, yFinal, { align: "center" });
@@ -522,6 +677,7 @@ export function agregarBloqueGraficoLineas(doc, y, { titulo, etiquetas, valores 
   const anchoContenido = anchoPagina - MARGEN_APA * 2;
   const altoGrafico = 60;
   let yActual = saltoDePaginaSiNecesario(doc, y, altoGrafico + 20);
+  const paginaEntrada = doc.internal.getNumberOfPages();
   const yBase = yActual + altoGrafico;
   const maxValor = Math.max(...valores, 1);
   const paso = valores.length > 1 ? anchoContenido / (valores.length - 1) : 0;
@@ -546,6 +702,7 @@ export function agregarBloqueGraficoLineas(doc, y, { titulo, etiquetas, valores 
 
   let yFinal = yBase + 10;
   contadores.figura += 1;
+  contadores.indiceFiguras.push({ numero: contadores.figura, titulo: titulo || "", pagina: paginaEntrada });
   doc.setFont("times", "italic");
   doc.setFontSize(9);
   doc.text(`Figura ${contadores.figura}.${titulo ? " " + titulo : ""}`, anchoPagina / 2, yFinal, { align: "center" });
@@ -559,6 +716,7 @@ export function agregarBloqueGraficoPastel(doc, y, { titulo, etiquetas, valores 
   const cx = anchoPagina / 2 - 30;
   const alturaBloque = radio * 2 + 14;
   let yActual = saltoDePaginaSiNecesario(doc, y, alturaBloque + 20);
+  const paginaEntrada = doc.internal.getNumberOfPages();
   const cy = yActual + radio;
 
   const total = valores.reduce((s, v) => s + v, 0) || 1;
@@ -596,6 +754,7 @@ export function agregarBloqueGraficoPastel(doc, y, { titulo, etiquetas, valores 
 
   let yFinal = yActual + alturaBloque;
   contadores.figura += 1;
+  contadores.indiceFiguras.push({ numero: contadores.figura, titulo: titulo || "", pagina: paginaEntrada });
   doc.setFont("times", "italic");
   doc.setFontSize(9);
   doc.text(`Figura ${contadores.figura}.${titulo ? " " + titulo : ""}`, anchoPagina / 2, yFinal, { align: "center" });

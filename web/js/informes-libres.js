@@ -11,7 +11,8 @@ import {
   crearDocumentoPDF, agregarPortadaInforme, agregarBloqueTitulo, agregarBloqueParrafo,
   agregarBloqueImagen, agregarBloqueTabla, agregarBloqueGraficoBarras, agregarBloqueGraficoLineas,
   agregarBloqueGraficoPastel, agregarEncabezadoPiePaginaInforme, agregarSeccionReferencias,
-  descargarPDF, crearContadoresInforme
+  descargarPDF, crearContadoresInforme, agregarTablaDeContenido, agregarIndiceElementos,
+  contarPaginasDeListado
 } from "./pdf.js";
 import * as pdfjsLib from "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.6.82/build/pdf.min.mjs";
 
@@ -468,6 +469,8 @@ function abrirModalMeta(modo, informe) {
   document.getElementById("metaIdentificacion").value = informe?.identificacionCliente || "";
   document.getElementById("metaProyecto").value = informe?.proyecto || "";
   document.getElementById("metaVersion").value = informe?.version || "1.0";
+  document.getElementById("metaAprobador").value = informe?.aprobador || "";
+  document.getElementById("metaCiudad").value = informe?.ciudad || "Neiva";
   document.getElementById("propuestaEstado").textContent = "";
   modalBackdrop.classList.add("open");
 }
@@ -511,7 +514,9 @@ document.getElementById("metaForm").addEventListener("submit", async (e) => {
       cliente: document.getElementById("metaCliente").value.trim(),
       identificacionCliente: document.getElementById("metaIdentificacion").value.trim(),
       proyecto: document.getElementById("metaProyecto").value.trim(),
-      version: document.getElementById("metaVersion").value.trim() || "1.0"
+      version: document.getElementById("metaVersion").value.trim() || "1.0",
+      aprobador: document.getElementById("metaAprobador").value.trim(),
+      ciudad: document.getElementById("metaCiudad").value.trim() || "Neiva"
     };
 
     if (modoMeta === "crear") {
@@ -1205,24 +1210,72 @@ document.getElementById("generarPdfBtn").addEventListener("click", async () => {
   try {
     const logoImg = await cargarImagenElemento("assets/img/logo.png").catch(() => null);
     const docPdf = crearDocumentoPDF("portrait");
-    let y = agregarPortadaInforme(docPdf, {
+    const margenContenido = agregarPortadaInforme(docPdf, {
       titulo: informeActual.titulo,
-      cliente: informeActual.cliente,
-      identificacionCliente: informeActual.identificacionCliente,
-      proyecto: informeActual.proyecto,
-      codigo: informeActual.codigo,
-      version: informeActual.version,
       autor: informeActual.autorNombre,
-      fecha: informeActual.fecha
+      aprobador: informeActual.aprobador,
+      ciudad: informeActual.ciudad,
+      fecha: informeActual.fecha,
+      codigo: informeActual.codigo,
+      version: informeActual.version
     });
 
     const numeros = calcularNumeracionBloques(bloques);
+
+    // Entradas de Tabla de Contenido / Índices, calculadas solo a partir de
+    // los bloques (sin número de página real todavía) — sirven para saber
+    // CUÁNTAS páginas reservar para estas secciones antes de dibujar el
+    // cuerpo (ver nota en pdf.js sobre por qué no se pueden insertar
+    // páginas en la mitad del documento).
+    const entradasTitulos = bloques
+      .map((b, i) => ({ b, i }))
+      .filter(({ b }) => b.tipo.startsWith("titulo"))
+      .map(({ b, i }) => ({ nivel: Number(b.tipo.slice(-1)), numero: numeros[i], texto: b.texto }));
+
+    let contadorFigPrevio = 0;
+    let contadorTabPrevio = 0;
+    const entradasFiguras = [];
+    const entradasTablas = [];
+    bloques.forEach((b) => {
+      if (b.tipo === "imagen" || b.tipo === "grafico") {
+        contadorFigPrevio += 1;
+        entradasFiguras.push({ numero: contadorFigPrevio, titulo: b.titulo || "" });
+      } else if (b.tipo === "tabla") {
+        contadorTabPrevio += 1;
+        entradasTablas.push({ numero: contadorTabPrevio, titulo: b.titulo || "" });
+      }
+    });
+
+    // Un jsPDF recién creado ya arranca con 1 página incluso si no se
+    // dibuja nada encima — por eso solo se cuenta cuando SÍ hay entradas,
+    // para no reservar una página en blanco de más cuando el informe no
+    // tiene títulos, imágenes o tablas.
+    const paginasTOC = entradasTitulos.length ? contarPaginasDeListado((doc) => agregarTablaDeContenido(doc, entradasTitulos)) : 0;
+    const paginasImg = entradasFiguras.length ? contarPaginasDeListado((doc) => agregarIndiceElementos(doc, "Índice de Imágenes", entradasFiguras, "Imagen")) : 0;
+    const paginasTab = entradasTablas.length ? contarPaginasDeListado((doc) => agregarIndiceElementos(doc, "Índice de Tablas", entradasTablas, "Tabla")) : 0;
+
+    // Reservar en blanco las páginas de TOC + índices justo después de la
+    // portada; se rellenan al final, cuando ya se conoce en qué página
+    // real cayó cada título/figura/tabla.
+    // agregarPortadaInforme ya dejó lista una página nueva (la portada es la
+    // 1); esa es la primera página reservable. Si hay algo que reservar, se
+    // completan las que falten y se agrega UNA página más aparte donde
+    // arranca el cuerpo real — si no hay nada que reservar, el cuerpo sigue
+    // directo en la página que ya dejó la portada, sin páginas de más.
+    const primeraPaginaIndices = docPdf.internal.getNumberOfPages();
+    const totalPaginasIndices = paginasTOC + paginasImg + paginasTab;
+    if (totalPaginasIndices > 0) {
+      for (let p = 1; p < totalPaginasIndices; p++) docPdf.addPage();
+      docPdf.addPage();
+    }
+
+    let y = margenContenido;
     const contadores = crearContadoresInforme();
 
     for (let i = 0; i < bloques.length; i++) {
       const b = bloques[i];
       if (b.tipo.startsWith("titulo")) {
-        y = agregarBloqueTitulo(docPdf, y, Number(b.tipo.slice(-1)), numeros[i], b.texto);
+        y = agregarBloqueTitulo(docPdf, y, Number(b.tipo.slice(-1)), numeros[i], b.texto, contadores);
       } else if (b.tipo === "parrafo") {
         y = agregarBloqueParrafo(docPdf, y, b.texto);
       } else if (b.tipo === "imagen" || (b.tipo === "tabla" && b.archivo)) {
@@ -1243,6 +1296,28 @@ document.getElementById("generarPdfBtn").addEventListener("click", async () => {
     }
 
     agregarSeccionReferencias(docPdf, referencias);
+
+    // Ya se conoce la página real de cada título/figura/tabla (contadores.
+    // indice*) — volver a las páginas reservadas y rellenarlas. `nuevaPagina`
+    // se reemplaza por doc.setPage() al siguiente hueco ya reservado en vez
+    // de doc.addPage(), que agregaría una página nueva al final del
+    // documento en lugar de continuar donde toca.
+    let paginaDeRelleno = primeraPaginaIndices;
+    if (entradasTitulos.length) {
+      docPdf.setPage(paginaDeRelleno);
+      agregarTablaDeContenido(docPdf, contadores.indiceTitulos, { nuevaPagina: () => docPdf.setPage(++paginaDeRelleno) });
+    }
+    paginaDeRelleno = primeraPaginaIndices + paginasTOC;
+    if (entradasFiguras.length) {
+      docPdf.setPage(paginaDeRelleno);
+      agregarIndiceElementos(docPdf, "Índice de Imágenes", contadores.indiceFiguras, "Imagen", { nuevaPagina: () => docPdf.setPage(++paginaDeRelleno) });
+    }
+    paginaDeRelleno = primeraPaginaIndices + paginasTOC + paginasImg;
+    if (entradasTablas.length) {
+      docPdf.setPage(paginaDeRelleno);
+      agregarIndiceElementos(docPdf, "Índice de Tablas", contadores.indiceTablas, "Tabla", { nuevaPagina: () => docPdf.setPage(++paginaDeRelleno) });
+    }
+
     agregarEncabezadoPiePaginaInforme(docPdf, { logoImg, titulo: informeActual.titulo, codigo: informeActual.codigo });
     descargarPDF(docPdf, `informe-${(informeActual.titulo || "informe").toLowerCase().replace(/[^a-z0-9]+/g, "-")}.pdf`);
   } catch (err) {
