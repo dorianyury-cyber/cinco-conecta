@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cinco Conecta — Empleados</title>
+<link rel="icon" href="assets/img/favicon.png">
+<link rel="stylesheet" href="assets/css/styles.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <a href="reconocimientos.html" class="brand">
+        <img src="assets/img/logo.png" alt="Cinco S.A.S.">
+        <span>Cinco Conecta</span>
+      </a>
+      <nav>
+        <a href="reconocimientos.html">🙌 Reconocimientos</a>
+        <a href="encuestas.html">📊 Encuestas</a>
+        <a href="comunicados.html">📢 Comunicados</a>
+        <a href="candidatos.html" class="solo-admin">👥 Candidatos</a>
+        <a href="vacantes-admin.html" class="solo-admin">📋 Vacantes</a>
+        <a href="empleados.html" class="solo-admin">🧑‍💼 Empleados</a>
+      </nav>
+      <div class="spacer"></div>
+      <div class="user-box">
+        <div id="userName">-</div>
+        <button class="btn secondary logout-btn" id="logoutBtn">Cerrar sesión</button>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header>
+        <h1>🧑‍💼 Empleados</h1>
+      </header>
+
+      <div class="card">
+        <h2>Invitar nuevo empleado</h2>
+        <form id="invitarForm">
+          <label for="nombreEmpleado">Nombre completo</label>
+          <input type="text" id="nombreEmpleado" required maxlength="100">
+
+          <label for="correoEmpleado">Correo</label>
+          <input type="email" id="correoEmpleado" required maxlength="120">
+
+          <div class="alert" id="alertBox"></div>
+          <button type="submit" class="btn" id="invitarBtn">Enviar invitación</button>
+        </form>
+      </div>
+
+      <div class="card">
+        <h2>Empleados con acceso</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Nombre</th>
+              <th>Rol</th>
+              <th>Estado</th>
+            </tr>
+          </thead>
+          <tbody id="tablaEmpleados">
+            <tr><td colspan="3" class="text-muted text-center">Cargando...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </main>
+  </div>
+
+  <script type="module" src="js/empleados.js"></script>
+</body>
+</html>

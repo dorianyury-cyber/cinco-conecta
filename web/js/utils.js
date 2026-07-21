@@ -61,6 +61,14 @@ export function formatDateCorta(value) {
   return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
 }
 
+// Mismos valores institucionales publicados en cinco-sas/corporativo.html —
+// se usan para etiquetar cada reconocimiento entre compañeros.
+export const VALORES_CINCO = [
+  "Seriedad", "Cumplimiento", "Calidad", "Compromiso",
+  "Armonía con el medio ambiente", "Sostenibilidad del talento humano",
+  "Creatividad", "Dinamismo", "Ética"
+];
+
 export function hoyStr(d = new Date()) {
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, "0");
@@ -110,9 +118,23 @@ function actualizarCajaUsuario(nombre) {
 }
 
 /**
- * Verifica sesión + carga el perfil desde staff/{uid}. Un solo nivel de
- * acceso por ahora (no hay roles diferenciados todavía) — si la cuenta fue
- * desactivada por otro miembro del equipo, se cierra la sesión.
+ * Los enlaces del menú marcados con esta clase (Vacantes/Candidatos/
+ * Empleados) solo los puede ver el rol "admin" (Talento Humano) — un
+ * empleado regular no gestiona contratación ni invita gente. Esto es solo
+ * comodidad de interfaz: la seguridad real la dan las Firestore Rules.
+ */
+function ocultarNavSoloAdmin() {
+  const insertar = () => {
+    document.querySelectorAll(".sidebar nav a.solo-admin").forEach((a) => a.classList.add("hidden"));
+  };
+  if (document.body) insertar();
+  else document.addEventListener("DOMContentLoaded", insertar);
+}
+
+/**
+ * Verifica sesión + carga el perfil desde staff/{uid} (incluye `rol`:
+ * "admin" o "empleado"). Si la cuenta fue desactivada por un admin, se
+ * cierra la sesión.
  */
 export function requireAuth() {
   return new Promise((resolve) => {
@@ -128,6 +150,7 @@ export function requireAuth() {
         return;
       }
       actualizarCajaUsuario(perfil.nombre || user.email);
+      if (perfil.rol !== "admin") ocultarNavSoloAdmin();
       resolve({ user, perfil });
     });
   });

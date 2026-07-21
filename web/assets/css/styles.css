@@ -89,6 +89,14 @@ img { max-width: 100%; display: block; }
 .logout-btn { margin-top: 10px; padding: 8px; }
 .mt-neg-10 { margin-top: -10px; }
 .mt-4 { margin: 4px 0 0; }
+.checkbox-row { display: flex; align-items: center; gap: 8px; font-weight: 400; margin-top: 14px; }
+.checkbox-row input[type="checkbox"] { width: auto; }
+.text-xs { font-size: 12px; }
+.text-sm { font-size: 12.5px; }
+.divider { margin: 18px 0; border: none; border-top: 1px solid var(--border); }
+.radio-row { margin-bottom: 0; }
+.radio-inline { display: flex; align-items: center; gap: 4px; font-weight: 400; margin: 0; }
+.radio-inline input[type="radio"] { width: auto; }
 .text-muted { color: var(--text-muted); }
 .text-center { text-align: center; }
 

@@ -53,7 +53,7 @@ function render() {
             <div class="nombre">${c.nombres} ${c.apellidos}</div>
             <div class="vacante">${c.vacanteTitulo || ""}</div>
           </div>
-        `).join("") || '<p class="text-muted" style="font-size:12px;">Sin candidatos</p>'}
+        `).join("") || '<p class="text-muted text-xs">Sin candidatos</p>'}
       </div>
     `;
   }).join("");

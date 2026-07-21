@@ -1,11 +1,13 @@
 rules_version = '2';
 
-// Cinco Conecta — panel protegido de Cinco S.A.S. (primer módulo: Trabaja
-// con Nosotros). "vacantes" es información pública (ofertas de empleo);
-// "candidatos" contiene datos personales y solo lo puede ver/editar el
-// staff autenticado — nunca acceso público directo (las postulaciones se
-// crean desde la Cloud Function enviarPostulacion, con el Admin SDK, que
-// no pasa por estas reglas).
+// Cinco Conecta — plataforma protegida de Cinco S.A.S.
+// "staff" representa a TODOS los empleados con acceso (no solo Talento
+// Humano): rol "admin" gestiona vacantes/candidatos/empleados/encuestas/
+// comunicados; rol "empleado" tiene acceso regular (reconocer, ver
+// comunicados, responder encuestas). "vacantes" y "comunicados"/
+// "encuestas" son de lectura para cualquier empleado; "candidatos" y las
+// respuestas de encuesta nunca son accesibles directo desde el cliente —
+// todo pasa por Cloud Functions con el Admin SDK.
 service cloud.firestore {
   match /databases/{database}/documents {
 
@@ -17,22 +19,66 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/staff/$(request.auth.uid)).data;
     }
 
-    function isStaff() {
+    function isEmpleado() {
       return isSignedIn() && staffDoc().estado == 'activo';
+    }
+
+    function isAdmin() {
+      return isEmpleado() && staffDoc().rol == 'admin';
     }
 
     match /staff/{uid} {
       allow get: if isSignedIn() && request.auth.uid == uid;
-      allow list, write: if false;
+      allow list: if isEmpleado();
+      allow write: if false;
     }
 
     match /vacantes/{id} {
       allow read: if true;
-      allow write: if isStaff();
+      allow write: if isAdmin();
     }
 
     match /candidatos/{id} {
-      allow read, write: if isStaff();
+      allow read, write: if isAdmin();
+    }
+
+    match /reconocimientos/{id} {
+      allow read: if isEmpleado();
+      allow create: if isEmpleado() && request.resource.data.deAutorUid == request.auth.uid;
+      // Solo se permite modificar el arreglo de "me gusta" desde el cliente;
+      // el resto de campos del reconocimiento son inmutables una vez creado.
+      allow update: if isEmpleado()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['megusta']);
+      allow delete: if isAdmin();
+    }
+
+    match /encuestas/{id} {
+      allow read: if isEmpleado();
+      allow write: if isAdmin();
+
+      // Cada quien puede ver si YA votó esta encuesta (para no mostrarle de
+      // nuevo el formulario), pero nunca puede escribir aquí directo — solo
+      // la Cloud Function responderEncuesta lo hace, y nadie puede leer el
+      // voto de otra persona.
+      match /votos/{uid} {
+        allow get: if isSignedIn() && request.auth.uid == uid;
+        allow list, write: if false;
+      }
+    }
+
+    match /comunicados/{id} {
+      allow read: if isEmpleado();
+      allow write: if isAdmin();
+    }
+
+    // Las respuestas de encuesta deben quedar anónimas (sin uid) y no se
+    // puede confiar en el cliente para impedir el doble voto sin revelar
+    // quién respondió — por eso solo se escriben desde la Cloud Function
+    // responderEncuesta. El admin sí puede LEERLAS (para ver resultados y
+    // promedios), pero como nunca tienen uid, siguen siendo anónimas.
+    match /encuestaRespuestas/{id} {
+      allow read: if isAdmin();
+      allow write: if false;
     }
   }
 }

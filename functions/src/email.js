@@ -81,4 +81,26 @@ async function enviarCambioEtapa({ nombres, email, tituloVacante, etapa }) {
   });
 }
 
-module.exports = { enviarConfirmacionPostulacion, enviarNotificacionRRHH, enviarCambioEtapa, ETAPA_TEXTO };
+async function enviarBienvenidaEmpleado({ nombre, correo, password }) {
+  const transporter = buildTransporter();
+  await transporter.sendMail({
+    from: `"Cinco Conecta" <${process.env.SMTP_USER}>`,
+    to: correo,
+    subject: "Bienvenido(a) a Cinco Conecta — tus datos de acceso",
+    text: [
+      `¡Bienvenido(a), ${nombre}!`,
+      "",
+      "Ya tienes acceso a Cinco Conecta, la plataforma interna de Cinco S.A.S.: reconoce a tus compañeros, participa en las encuestas y entérate de los comunicados de la empresa.",
+      "",
+      "Tus accesos:",
+      `Usuario: ${correo}`,
+      `Contraseña temporal: ${password}`,
+      "",
+      "Ingresa aquí: https://cinco-conecta.web.app/login.html",
+      "",
+      "Cinco S.A.S."
+    ].join("\n")
+  });
+}
+
+module.exports = { enviarConfirmacionPostulacion, enviarNotificacionRRHH, enviarCambioEtapa, enviarBienvenidaEmpleado, ETAPA_TEXTO };
