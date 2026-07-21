@@ -42,6 +42,19 @@ const REFERENCIAS_POR_DEFECTO = [
 // comprimir puede saturar la memoria del navegador al generar el PDF).
 // ---------------------------------------------------------------------
 
+// El navegador solo puede decodificar los formatos de imagen que soporta de
+// forma nativa. El caso real más común de "no se pudo leer la imagen" es una
+// foto de iPhone en formato HEIC (formato de cámara por defecto de Apple),
+// que no se puede mostrar en un <img> de escritorio — se valida el tipo
+// ANTES de intentar decodificar, para dar un mensaje que explique qué pasó
+// en vez del genérico error de decodificación del navegador.
+const TIPOS_IMAGEN_PERMITIDOS = ["image/jpeg", "image/png", "image/webp"];
+
+function validarTipoImagen(file) {
+  if (TIPOS_IMAGEN_PERMITIDOS.includes(file.type)) return null;
+  return `Formato de imagen no compatible${file.type ? ` (${file.type})` : ""}. Usa JPG, PNG o WEBP. Si es una foto de iPhone en formato HEIC, conviértela primero a JPG.`;
+}
+
 function comprimirImagen(file, maxLado = 1600, calidad = 0.75) {
   return new Promise((resolve, reject) => {
     const img = new Image();
@@ -646,12 +659,14 @@ function sincronizarBloquesDesdeDOM() {
     if (b.tipo.startsWith("titulo") || b.tipo === "parrafo") {
       const el = campo("texto");
       if (el) b.texto = el.value;
-    } else if (b.tipo === "imagen") {
+    } else if (b.tipo === "imagen" || (b.tipo === "tabla" && b.archivo)) {
+      // Imagen, o tabla cargada como imagen (botón "+ Tabla") — mismos campos.
       const pieEl = campo("pie");
       if (pieEl) b.pie = pieEl.value;
       const tituloEl = campo("tituloImagen");
       if (tituloEl) b.titulo = tituloEl.value;
     } else if (b.tipo === "tabla") {
+      // Tabla con datos estructurados (importada de Word, o creada antes de este cambio).
       const tituloEl = campo("tituloTabla");
       if (tituloEl) b.titulo = tituloEl.value;
       const pieEl = campo("pieTabla");
@@ -689,16 +704,22 @@ document.querySelectorAll("[data-agregar]").forEach((btn) => {
   btn.addEventListener("click", () => agregarBloque(btn.dataset.agregar));
 });
 
+// Al agregar una imagen o una tabla desde los botones, ambas se cargan
+// como imagen (una captura/foto de la tabla ya armada en Excel/Word, por
+// ejemplo) — más simple que llenar una cuadrícula a mano. Esta variable
+// recuerda cuál de los dos botones se usó para saber qué tipo de bloque
+// crear cuando el usuario termine de elegir el archivo.
+let tipoBloqueASubir = "imagen";
+
 function agregarBloque(tipo) {
   if (!puedeEditarInforme()) return;
   sincronizarBloquesDesdeDOM();
-  if (tipo === "imagen") {
+  if (tipo === "imagen" || tipo === "tabla") {
+    tipoBloqueASubir = tipo;
     document.getElementById("inputImagen").click();
     return;
   }
-  if (tipo === "tabla") {
-    bloques.push({ tipo: "tabla", titulo: "", pie: "", columnas: ["Columna 1", "Columna 2"], filas: [["", ""]] });
-  } else if (tipo === "grafico") {
+  if (tipo === "grafico") {
     bloques.push({ tipo: "grafico", tipoGrafico: "barras", titulo: "", etiquetas: ["Dato 1"], valores: [0] });
   } else {
     bloques.push({ tipo, texto: "" });
@@ -712,13 +733,15 @@ document.getElementById("inputImagen").addEventListener("change", async (e) => {
   if (!file || !informeActual) return;
   const alertBox = document.getElementById("editorAlertBox");
   clearAlert(alertBox);
+  const errorTipo = validarTipoImagen(file);
+  if (errorTipo) { showAlert(alertBox, errorTipo, "error"); return; }
   try {
     const blob = await comprimirImagen(file);
     const base64 = await leerBlobComoBase64(blob);
     const llamada = httpsCallable(functions, "subirImagenInforme");
     const { data } = await llamada({ informeId: informeActual.id, archivoBase64: base64, tipo: "image/jpeg" });
     imagenesCache[data.path] = `data:image/jpeg;base64,${base64}`;
-    bloques.push({ tipo: "imagen", archivo: { nombre: file.name, path: data.path, tipo: "image/jpeg", tamano: blob.size }, titulo: "", pie: "" });
+    bloques.push({ tipo: tipoBloqueASubir, archivo: { nombre: file.name, path: data.path, tipo: "image/jpeg", tamano: blob.size }, titulo: "", pie: "" });
     renderBloques();
   } catch (err) {
     showAlert(alertBox, friendlyError(err), "error");
@@ -951,6 +974,8 @@ document.getElementById("inputImagenReemplazo").addEventListener("change", async
   sincronizarBloquesDesdeDOM();
   const alertBox = document.getElementById("editorAlertBox");
   clearAlert(alertBox);
+  const errorTipo = validarTipoImagen(file);
+  if (errorTipo) { showAlert(alertBox, errorTipo, "error"); return; }
   try {
     const blob = await comprimirImagen(file);
     const base64 = await leerBlobComoBase64(blob);
@@ -1046,6 +1071,33 @@ function renderBloque(bloque, i, numero) {
         <label>Título de la imagen (va arriba, como "Figura N. Título")</label>
         <input type="text" data-campo="tituloImagen" value="${(bloque.titulo || "").replace(/"/g, "&quot;")}" ${dis}>
         ${previewHtml}
+        <div class="toolbar mt-4">
+          <button type="button" class="btn secondary btn-auto" data-accion="cambiarImagen" data-indice="${i}" ${dis}>🔄 Cambiar imagen</button>
+        </div>
+        <label>Nota / fuente (va debajo, ej. "Fuente: Elaboración propia")</label>
+        <input type="text" data-campo="pie" value="${(bloque.pie || "").replace(/"/g, "&quot;")}" ${dis}>
+        ${controles}
+      </div>
+    `;
+  }
+
+  if (bloque.tipo === "tabla" && bloque.archivo) {
+    // Tabla cargada como imagen (botón "+ Tabla") — misma interfaz que un
+    // bloque de imagen, solo cambia la etiqueta y el contador en el PDF
+    // (Tabla N. en vez de Figura N.).
+    const path = bloque.archivo?.path;
+    let previewHtmlTabla;
+    if (path && imagenesCache[path]) {
+      previewHtmlTabla = `<img class="preview-img" src="${imagenesCache[path]}" alt="">`;
+    } else {
+      previewHtmlTabla = '<p class="text-muted text-sm">Cargando imagen...</p>';
+      if (path && !imagenesCargando.has(path)) cargarImagenEnCache(path, i);
+    }
+    return `
+      <div class="card item-card bloque-card" data-bloque="${i}">
+        <label>Título de la tabla (va arriba, como "Tabla N. Título")</label>
+        <input type="text" data-campo="tituloImagen" value="${(bloque.titulo || "").replace(/"/g, "&quot;")}" ${dis}>
+        ${previewHtmlTabla}
         <div class="toolbar mt-4">
           <button type="button" class="btn secondary btn-auto" data-accion="cambiarImagen" data-indice="${i}" ${dis}>🔄 Cambiar imagen</button>
         </div>
@@ -1166,13 +1218,13 @@ document.getElementById("generarPdfBtn").addEventListener("click", async () => {
         y = agregarBloqueTitulo(docPdf, y, Number(b.tipo.slice(-1)), numeros[i], b.texto);
       } else if (b.tipo === "parrafo") {
         y = agregarBloqueParrafo(docPdf, y, b.texto);
-      } else if (b.tipo === "imagen") {
+      } else if (b.tipo === "imagen" || (b.tipo === "tabla" && b.archivo)) {
         let dataUrl = imagenesCache[b.archivo.path];
         if (!dataUrl) {
           dataUrl = await obtenerArchivoComoDataUrl(b.archivo.path);
           imagenesCache[b.archivo.path] = dataUrl;
         }
-        y = await agregarBloqueImagen(docPdf, y, dataUrl, b.titulo, b.pie, contadores);
+        y = await agregarBloqueImagen(docPdf, y, dataUrl, b.titulo, b.pie, contadores, b.tipo === "tabla" ? "Tabla" : "Figura");
       } else if (b.tipo === "tabla") {
         y = agregarBloqueTabla(docPdf, y, b.columnas, b.filas, b.titulo, b.pie, contadores);
       } else if (b.tipo === "grafico") {

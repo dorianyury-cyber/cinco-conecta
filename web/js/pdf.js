@@ -407,27 +407,31 @@ export function agregarBloqueParrafo(doc, y, texto) {
 }
 
 /**
- * Imagen escalada al ancho del contenido preservando proporción. Estilo
- * APA de figura: "Figura N. {título}" ARRIBA de la imagen (no abajo), y
- * si hay una nota/fuente ("pie"), va debajo en cursiva. Es async porque
+ * Imagen escalada al ancho del contenido preservando proporción,
+ * centrada, con "Figura N. {título}" centrado ARRIBA y, si hay nota/
+ * fuente ("pie"), centrada debajo en cursiva — estilo APA. También se usa
+ * para tablas que el usuario sube como imagen (screenshot de Excel/Word)
+ * en vez de datos estructurados: pasa `etiqueta="Tabla"` para que use el
+ * contador y el rótulo de tabla en lugar de figura. Es async porque
  * necesita cargar la imagen para leer sus dimensiones naturales antes de
  * calcular el alto final.
  */
-export function agregarBloqueImagen(doc, y, dataUrl, titulo, pie, contadores) {
+export function agregarBloqueImagen(doc, y, dataUrl, titulo, pie, contadores, etiqueta = "Figura") {
   return new Promise((resolve) => {
     const img = new Image();
     img.onload = () => {
       const anchoPagina = doc.internal.pageSize.getWidth();
       const anchoContenido = anchoPagina - MARGEN_APA * 2;
+      const centroX = anchoPagina / 2;
       const escala = Math.min(anchoContenido / img.naturalWidth, 1);
       const anchoFinal = img.naturalWidth * escala;
       const altoFinal = img.naturalHeight * escala;
 
-      contadores.figura += 1;
+      const numero = etiqueta === "Tabla" ? (contadores.tabla += 1) : (contadores.figura += 1);
       let yActual = saltoDePaginaSiNecesario(doc, y, altoFinal + 20);
       doc.setFont("times", "bold");
       doc.setFontSize(10);
-      doc.text(`Figura ${contadores.figura}.${titulo ? " " + titulo : ""}`, MARGEN_APA, yActual);
+      doc.text(`${etiqueta} ${numero}.${titulo ? " " + titulo : ""}`, centroX, yActual, { align: "center" });
       yActual += 6;
 
       const x = MARGEN_APA + (anchoContenido - anchoFinal) / 2;
@@ -439,7 +443,7 @@ export function agregarBloqueImagen(doc, y, dataUrl, titulo, pie, contadores) {
         doc.setFont("times", "italic");
         doc.setFontSize(9);
         const lineasPie = doc.splitTextToSize(pie, anchoContenido);
-        doc.text(lineasPie, MARGEN_APA, yActual);
+        doc.text(lineasPie, centroX, yActual, { align: "center" });
         yActual += lineasPie.length * 4.5 + 3;
       }
       resolve(yActual + 4);
@@ -456,23 +460,24 @@ export function agregarBloqueImagen(doc, y, dataUrl, titulo, pie, contadores) {
  * este informe (1 pulgada) en vez de los 12mm del resto de la plataforma.
  */
 export function agregarBloqueTabla(doc, y, columnas, filas, tituloTabla, pie, contadores) {
+  const anchoPagina = doc.internal.pageSize.getWidth();
+  const centroX = anchoPagina / 2;
   contadores.tabla += 1;
   let yActual = saltoDePaginaSiNecesario(doc, y, 20);
   doc.setFont("times", "bold");
   doc.setFontSize(10);
-  doc.text(`Tabla ${contadores.tabla}.${tituloTabla ? " " + tituloTabla : ""}`, MARGEN_APA, yActual);
+  doc.text(`Tabla ${contadores.tabla}.${tituloTabla ? " " + tituloTabla : ""}`, centroX, yActual, { align: "center" });
   yActual += 5;
   agregarTabla(doc, columnas, filas, yActual, { margin: { left: MARGEN_APA, right: MARGEN_APA, bottom: MARGEN_APA } });
   yActual = doc.lastAutoTable.finalY + 4;
 
   if (pie) {
-    const anchoPagina = doc.internal.pageSize.getWidth();
     const anchoContenido = anchoPagina - MARGEN_APA * 2;
     doc.setFont("times", "italic");
     doc.setFontSize(9);
     const lineasPie = doc.splitTextToSize(pie, anchoContenido);
     yActual = saltoDePaginaSiNecesario(doc, yActual, lineasPie.length * 4.5);
-    doc.text(lineasPie, MARGEN_APA, yActual);
+    doc.text(lineasPie, centroX, yActual, { align: "center" });
     yActual += lineasPie.length * 4.5 + 3;
   }
   return yActual + 4;
