@@ -49,10 +49,17 @@ const REFERENCIAS_POR_DEFECTO = [
 // ANTES de intentar decodificar, para dar un mensaje que explique qué pasó
 // en vez del genérico error de decodificación del navegador.
 const TIPOS_IMAGEN_PERMITIDOS = ["image/jpeg", "image/png", "image/webp"];
+const EXTENSIONES_IMAGEN_PERMITIDAS = ["jpg", "jpeg", "png", "webp"];
 
 function validarTipoImagen(file) {
   if (TIPOS_IMAGEN_PERMITIDOS.includes(file.type)) return null;
-  return `Formato de imagen no compatible${file.type ? ` (${file.type})` : ""}. Usa JPG, PNG o WEBP. Si es una foto de iPhone en formato HEIC, conviértela primero a JPG.`;
+  const ext = (file.name.split(".").pop() || "").toLowerCase();
+  // En algunos equipos Windows la asociación de archivo de ".jpg" está mal
+  // configurada y el navegador no puede determinar el tipo (file.type llega
+  // vacío) aunque el archivo sea un JPG real — en ese caso confiar en la
+  // extensión en vez de rechazarlo de una.
+  if (!file.type && EXTENSIONES_IMAGEN_PERMITIDAS.includes(ext)) return null;
+  return `Formato de imagen no compatible${file.type ? ` (${file.type})` : ext ? ` (.${ext})` : ""}. Usa JPG, PNG o WEBP. Si es una foto de iPhone en formato HEIC, conviértela primero a JPG.`;
 }
 
 function comprimirImagen(file, maxLado = 1600, calidad = 0.75) {
