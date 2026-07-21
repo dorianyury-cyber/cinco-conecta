@@ -1,0 +1,38 @@
+name: Deploy to Firebase Hosting on merge
+on:
+  push:
+    branches:
+      - main
+jobs:
+  build_and_deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_CINCO_CONECTA }}
+          channelId: live
+          projectId: cinco-conecta
+
+  deploy_functions:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Instalar dependencias de Cloud Functions
+        working-directory: functions
+        run: npm install
+      - name: Generar functions/.env con los secretos
+        working-directory: functions
+        run: |
+          echo "SMTP_USER=${{ secrets.SMTP_USER }}" >> .env
+          echo "SMTP_PASS=${{ secrets.SMTP_PASS }}" >> .env
+      - name: Desplegar Cloud Functions
+        uses: w9jds/firebase-action@master
+        with:
+          args: deploy --only functions --project cinco-conecta --force
+        env:
+          GCP_SA_KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_CINCO_CONECTA }}
