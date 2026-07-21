@@ -164,3 +164,311 @@ export function agregarPiePagina(doc) {
 export function descargarPDF(doc, nombreArchivo) {
   doc.save(nombreArchivo);
 }
+
+// ---------------------------------------------------------------------
+// Informes de interventoría (formato libre) — funciones aditivas, no
+// tocan nada de lo anterior. Portada estilo APA + control documental ISO
+// 9001, y bloques de contenido (títulos numerados, párrafos, imágenes,
+// tablas, gráficos) que el editor de bloques va ensamblando en orden.
+// ---------------------------------------------------------------------
+
+const AMBAR = [254, 178, 9];
+const AMBAR_OSCURO = [217, 148, 0];
+const NAVY = [31, 39, 50];
+
+function colorPaleta(i, total) {
+  if (total <= 1) return AMBAR;
+  const t = i / (total - 1);
+  return AMBAR.map((c, idx) => Math.round(c + (NAVY[idx] - c) * t));
+}
+
+function formatearFechaInforme(fecha) {
+  if (!fecha) return "—";
+  const d = /^\d{4}-\d{2}-\d{2}$/.test(fecha) ? new Date(`${fecha}T12:00:00`) : new Date(fecha);
+  if (Number.isNaN(d.getTime())) return String(fecha);
+  return d.toLocaleDateString("es-CO", { year: "numeric", month: "long", day: "numeric" });
+}
+
+function saltoDePaginaSiNecesario(doc, y, alturaNecesaria) {
+  const altoPagina = doc.internal.pageSize.getHeight();
+  if (y + alturaNecesaria > altoPagina - 20) {
+    doc.addPage();
+    return 20;
+  }
+  return y;
+}
+
+/** Nuevo contador { figura, tabla } — pásalo a todas las funciones de bloque de un mismo informe. */
+export function crearContadoresInforme() {
+  return { figura: 0, tabla: 0 };
+}
+
+/**
+ * Portada del informe de formato libre: título/cliente/proyecto centrados
+ * (estilo APA) + una mini-tabla de control documental (Código/Versión/
+ * Fecha/Elaborado por) estilo ISO 9001. Termina la página y devuelve el
+ * "y" inicial (20) para que el contenido empiece en una página nueva.
+ */
+export function agregarPortadaInforme(doc, { titulo, cliente, proyecto, codigo, version, autor, fecha }) {
+  const anchoPagina = doc.internal.pageSize.getWidth();
+  let y = 42;
+
+  doc.setFont("times", "bold");
+  doc.setFontSize(20);
+  doc.text("Cinco S.A.S.", anchoPagina / 2, y, { align: "center" });
+
+  y += 6;
+  doc.setDrawColor(...AMBAR);
+  doc.setLineWidth(1);
+  doc.line(anchoPagina / 2 - 28, y, anchoPagina / 2 + 28, y);
+
+  y += 18;
+  doc.setFont("times", "bold");
+  doc.setFontSize(16);
+  const lineasTitulo = doc.splitTextToSize(titulo || "Informe de interventoría", anchoPagina - 50);
+  doc.text(lineasTitulo, anchoPagina / 2, y, { align: "center" });
+  y += lineasTitulo.length * 7 + 8;
+
+  doc.setFont("times", "normal");
+  doc.setFontSize(12);
+  if (cliente) {
+    doc.text(`Cliente: ${cliente}`, anchoPagina / 2, y, { align: "center" });
+    y += 6.5;
+  }
+  if (proyecto) {
+    doc.text(`Proyecto: ${proyecto}`, anchoPagina / 2, y, { align: "center" });
+    y += 6.5;
+  }
+
+  y += 8;
+  doc.setFont("times", "italic");
+  doc.setFontSize(10.5);
+  doc.text(`Elaborado por ${autor || "—"} · ${formatearFechaInforme(fecha)}`, anchoPagina / 2, y, { align: "center" });
+
+  const altoPagina = doc.internal.pageSize.getHeight();
+  const filasControl = [
+    ["Código", codigo || "—"],
+    ["Versión", version || "1.0"],
+    ["Fecha", formatearFechaInforme(fecha)],
+    ["Elaborado por", autor || "—"]
+  ];
+  const anchoTabla = 100;
+  const xTabla = (anchoPagina - anchoTabla) / 2;
+  const yTabla = altoPagina - 65;
+
+  doc.setDrawColor(200, 200, 200);
+  doc.rect(xTabla, yTabla - 6, anchoTabla, filasControl.length * 7 + 6);
+  doc.setFontSize(9);
+  filasControl.forEach(([etiqueta, valor], i) => {
+    const yFila = yTabla + i * 7;
+    doc.setFont("times", "bold");
+    doc.text(etiqueta, xTabla + 4, yFila);
+    doc.setFont("times", "normal");
+    doc.text(String(valor), xTabla + 36, yFila);
+  });
+
+  doc.addPage();
+  return 20;
+}
+
+/** Título de nivel 1/2/3 ya numerado (ej. "2.1. Hallazgos"). */
+export function agregarBloqueTitulo(doc, y, nivel, numero, texto) {
+  const anchoPagina = doc.internal.pageSize.getWidth();
+  const anchoContenido = anchoPagina - 24;
+  let yActual = saltoDePaginaSiNecesario(doc, y, 14);
+
+  const tamanos = { 1: 14, 2: 12, 3: 11 };
+  doc.setFont("times", nivel === 3 ? "bolditalic" : "bold");
+  doc.setFontSize(tamanos[nivel] || 11);
+  const textoCompleto = numero ? `${numero}. ${texto || ""}` : String(texto || "");
+  const lineas = doc.splitTextToSize(textoCompleto, anchoContenido);
+  doc.text(lineas, 12, yActual);
+  yActual += lineas.length * ((tamanos[nivel] || 11) / 2.1) + 3;
+
+  if (nivel === 1) {
+    doc.setDrawColor(...AMBAR);
+    doc.setLineWidth(0.6);
+    doc.line(12, yActual - 2, 12 + anchoContenido, yActual - 2);
+    yActual += 3;
+  }
+  return yActual;
+}
+
+/** Párrafo de texto libre, con salto de página automático línea por línea. */
+export function agregarBloqueParrafo(doc, y, texto) {
+  const anchoPagina = doc.internal.pageSize.getWidth();
+  const anchoContenido = anchoPagina - 24;
+  doc.setFont("times", "normal");
+  doc.setFontSize(10.5);
+  const lineas = doc.splitTextToSize(texto || "", anchoContenido);
+  const alturaLinea = 5.2;
+  let yActual = y;
+  lineas.forEach((linea) => {
+    yActual = saltoDePaginaSiNecesario(doc, yActual, alturaLinea);
+    doc.text(linea, 12, yActual);
+    yActual += alturaLinea;
+  });
+  return yActual + 3;
+}
+
+/**
+ * Imagen escalada al ancho del contenido preservando proporción, con pie
+ * "Figura N." numerado. Es async porque necesita cargar la imagen para leer
+ * sus dimensiones naturales antes de calcular el alto final.
+ */
+export function agregarBloqueImagen(doc, y, dataUrl, pie, contadores) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      const anchoPagina = doc.internal.pageSize.getWidth();
+      const anchoContenido = anchoPagina - 24;
+      const escala = Math.min(anchoContenido / img.naturalWidth, 1);
+      const anchoFinal = img.naturalWidth * escala;
+      const altoFinal = img.naturalHeight * escala;
+      let yActual = saltoDePaginaSiNecesario(doc, y, altoFinal + 12);
+      const x = 12 + (anchoContenido - anchoFinal) / 2;
+      const formato = dataUrl.startsWith("data:image/png") ? "PNG" : "JPEG";
+      doc.addImage(dataUrl, formato, x, yActual, anchoFinal, altoFinal);
+      yActual += altoFinal + 5;
+
+      contadores.figura += 1;
+      doc.setFont("times", "italic");
+      doc.setFontSize(9);
+      doc.text(`Figura ${contadores.figura}.${pie ? " " + pie : ""}`, anchoPagina / 2, yActual, { align: "center" });
+      resolve(yActual + 6);
+    };
+    img.onerror = () => resolve(y);
+    img.src = dataUrl;
+  });
+}
+
+/** Tabla con rótulo "Tabla N." numerado, reutilizando agregarTabla tal cual. */
+export function agregarBloqueTabla(doc, y, columnas, filas, tituloTabla, contadores) {
+  contadores.tabla += 1;
+  let yActual = saltoDePaginaSiNecesario(doc, y, 20);
+  doc.setFont("times", "bold");
+  doc.setFontSize(10);
+  doc.text(`Tabla ${contadores.tabla}.${tituloTabla ? " " + tituloTabla : ""}`, 12, yActual);
+  yActual += 5;
+  agregarTabla(doc, columnas, filas, yActual);
+  return doc.lastAutoTable.finalY + 8;
+}
+
+/** Gráfico de barras vectorial (una sola serie etiqueta/valor). */
+export function agregarBloqueGraficoBarras(doc, y, { titulo, etiquetas, valores }, contadores) {
+  const anchoPagina = doc.internal.pageSize.getWidth();
+  const anchoContenido = anchoPagina - 24;
+  const altoGrafico = 60;
+  let yActual = saltoDePaginaSiNecesario(doc, y, altoGrafico + 20);
+  const yBase = yActual + altoGrafico;
+  const maxValor = Math.max(...valores, 1);
+  const anchoBarra = anchoContenido / valores.length;
+
+  doc.setDrawColor(180, 180, 180);
+  doc.line(12, yBase, 12 + anchoContenido, yBase);
+
+  valores.forEach((valor, i) => {
+    const alturaBarra = (valor / maxValor) * (altoGrafico - 12);
+    const x = 12 + i * anchoBarra + anchoBarra * 0.15;
+    const anchoBarraReal = anchoBarra * 0.7;
+    doc.setFillColor(...colorPaleta(i, valores.length));
+    doc.rect(x, yBase - alturaBarra, anchoBarraReal, alturaBarra, "F");
+    doc.setFont("times", "normal");
+    doc.setFontSize(7.5);
+    doc.text(String(valor), x + anchoBarraReal / 2, yBase - alturaBarra - 2, { align: "center" });
+    doc.text(String(etiquetas[i] ?? ""), x + anchoBarraReal / 2, yBase + 5, { align: "center", maxWidth: anchoBarra });
+  });
+
+  let yFinal = yBase + 10;
+  contadores.figura += 1;
+  doc.setFont("times", "italic");
+  doc.setFontSize(9);
+  doc.text(`Figura ${contadores.figura}.${titulo ? " " + titulo : ""}`, anchoPagina / 2, yFinal, { align: "center" });
+  return yFinal + 6;
+}
+
+/** Gráfico de líneas vectorial (una sola serie etiqueta/valor). */
+export function agregarBloqueGraficoLineas(doc, y, { titulo, etiquetas, valores }, contadores) {
+  const anchoPagina = doc.internal.pageSize.getWidth();
+  const anchoContenido = anchoPagina - 24;
+  const altoGrafico = 60;
+  let yActual = saltoDePaginaSiNecesario(doc, y, altoGrafico + 20);
+  const yBase = yActual + altoGrafico;
+  const maxValor = Math.max(...valores, 1);
+  const paso = valores.length > 1 ? anchoContenido / (valores.length - 1) : 0;
+  const puntos = valores.map((v, i) => ({ x: 12 + i * paso, y: yBase - (v / maxValor) * (altoGrafico - 12) }));
+
+  doc.setDrawColor(180, 180, 180);
+  doc.line(12, yBase, 12 + anchoContenido, yBase);
+
+  doc.setDrawColor(...AMBAR_OSCURO);
+  doc.setLineWidth(0.8);
+  for (let i = 0; i < puntos.length - 1; i++) {
+    doc.line(puntos[i].x, puntos[i].y, puntos[i + 1].x, puntos[i + 1].y);
+  }
+  puntos.forEach((p, i) => {
+    doc.setFillColor(...AMBAR);
+    doc.circle(p.x, p.y, 1.4, "F");
+    doc.setFont("times", "normal");
+    doc.setFontSize(7.5);
+    doc.text(String(valores[i]), p.x, p.y - 3, { align: "center" });
+    doc.text(String(etiquetas[i] ?? ""), p.x, yBase + 5, { align: "center" });
+  });
+
+  let yFinal = yBase + 10;
+  contadores.figura += 1;
+  doc.setFont("times", "italic");
+  doc.setFontSize(9);
+  doc.text(`Figura ${contadores.figura}.${titulo ? " " + titulo : ""}`, anchoPagina / 2, yFinal, { align: "center" });
+  return yFinal + 6;
+}
+
+/** Gráfico de pastel vectorial (abanico de triángulos, sin librería de gráficos). */
+export function agregarBloqueGraficoPastel(doc, y, { titulo, etiquetas, valores }, contadores) {
+  const anchoPagina = doc.internal.pageSize.getWidth();
+  const radio = 26;
+  const cx = anchoPagina / 2 - 30;
+  const alturaBloque = radio * 2 + 14;
+  let yActual = saltoDePaginaSiNecesario(doc, y, alturaBloque + 20);
+  const cy = yActual + radio;
+
+  const total = valores.reduce((s, v) => s + v, 0) || 1;
+  let anguloInicio = -Math.PI / 2;
+  const gradosPorPaso = 3;
+
+  valores.forEach((valor, i) => {
+    const anguloBarrido = (valor / total) * Math.PI * 2;
+    doc.setFillColor(...colorPaleta(i, valores.length));
+    const pasos = Math.max(2, Math.ceil(((anguloBarrido * 180) / Math.PI) / gradosPorPaso));
+    for (let s = 0; s < pasos; s++) {
+      const a1 = anguloInicio + (anguloBarrido * s) / pasos;
+      const a2 = anguloInicio + (anguloBarrido * (s + 1)) / pasos;
+      const x1 = cx + radio * Math.cos(a1);
+      const y1 = cy + radio * Math.sin(a1);
+      const x2 = cx + radio * Math.cos(a2);
+      const y2 = cy + radio * Math.sin(a2);
+      doc.triangle(cx, cy, x1, y1, x2, y2, "F");
+    }
+    anguloInicio += anguloBarrido;
+  });
+
+  const xLeyenda = cx + radio + 14;
+  let yLeyenda = yActual + 4;
+  valores.forEach((valor, i) => {
+    doc.setFillColor(...colorPaleta(i, valores.length));
+    doc.rect(xLeyenda, yLeyenda - 3, 4, 4, "F");
+    doc.setFont("times", "normal");
+    doc.setFontSize(8.5);
+    doc.setTextColor(0);
+    const porcentaje = Math.round((valor / total) * 100);
+    doc.text(`${etiquetas[i] ?? ""} (${porcentaje}%)`, xLeyenda + 6, yLeyenda);
+    yLeyenda += 6;
+  });
+
+  let yFinal = yActual + alturaBloque;
+  contadores.figura += 1;
+  doc.setFont("times", "italic");
+  doc.setFontSize(9);
+  doc.text(`Figura ${contadores.figura}.${titulo ? " " + titulo : ""}`, anchoPagina / 2, yFinal, { align: "center" });
+  return yFinal + 6;
+}

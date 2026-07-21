@@ -102,6 +102,16 @@ img { max-width: 100%; display: block; }
 .text-muted { color: var(--text-muted); }
 .text-center { text-align: center; }
 
+/* Editor de bloques — Informes libres */
+.bloque-card { border-left: 3px solid var(--cinco-amber); }
+.bloque-numero { color: var(--cinco-amber-dark); font-weight: 700; margin-right: 6px; }
+.preview-img { max-width: 100%; max-height: 220px; border-radius: 8px; display: block; margin-top: 8px; }
+.tabla-editor { width: 100%; border-collapse: collapse; margin-top: 8px; }
+.tabla-editor td { padding: 4px; }
+.tabla-editor input { margin: 0; }
+.grafico-filas td { padding: 4px; }
+.svg-grafico { width: 100%; height: 160px; margin-top: 8px; }
+
 /* =========================================================
    Sitio público (vacantes, postular, estado) — mismo lenguaje
    visual que cinco-sas.

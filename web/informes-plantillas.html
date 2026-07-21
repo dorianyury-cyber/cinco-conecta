@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cinco Conecta — Plantillas de Informes</title>
+<link rel="icon" href="assets/img/favicon.png">
+<link rel="stylesheet" href="assets/css/styles.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <a href="reconocimientos.html" class="brand">
+        <img src="assets/img/logo.png" alt="Cinco S.A.S.">
+        <span>Cinco Conecta</span>
+      </a>
+      <nav>
+        <a href="reconocimientos.html">🙌 Reconocimientos</a>
+        <a href="encuestas.html">📊 Encuestas</a>
+        <a href="comunicados.html">📢 Comunicados</a>
+        <a href="incidentes.html">⚠️ Incidentes</a>
+        <a href="acciones-correctivas.html">✅ Acciones Correctivas</a>
+        <a href="documentos.html">📁 Documentos</a>
+        <a href="auditorias.html">🔍 Auditorías</a>
+        <a href="informes-plantillas.html">📑 Plantillas Informes</a>
+        <a href="informes-libres.html">📝 Informes Libres</a>
+        <a href="candidatos.html" class="solo-admin">👥 Candidatos</a>
+        <a href="vacantes-admin.html" class="solo-admin">📋 Vacantes</a>
+        <a href="empleados.html" class="solo-admin">🧑‍💼 Empleados</a>
+      </nav>
+      <div class="spacer"></div>
+      <div class="user-box">
+        <div id="userName">-</div>
+        <button class="btn secondary logout-btn" id="logoutBtn">Cerrar sesión</button>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header>
+        <h1>📑 Plantillas de Informes (formato del cliente)</h1>
+      </header>
+
+      <div class="card solo-admin hidden" id="subirCard">
+        <h2>Subir plantilla nueva</h2>
+        <p class="text-muted text-sm">El archivo debe ser un Word (.docx) con los campos a llenar escritos entre llaves, por ejemplo <code>{cliente}</code> o <code>{fecha_inspeccion}</code>.</p>
+        <form id="subirForm">
+          <label for="nombre">Nombre de la plantilla</label>
+          <input type="text" id="nombre" required maxlength="150" placeholder="Ej: Informe mensual Ecopetrol">
+
+          <label for="cliente">Cliente</label>
+          <input type="text" id="cliente" required maxlength="150" list="clientesConocidos">
+          <datalist id="clientesConocidos"></datalist>
+
+          <label for="archivo">Archivo de la plantilla (.docx, máx. 5 MB)</label>
+          <input type="file" id="archivo" accept=".docx" required>
+
+          <div class="alert" id="alertBox"></div>
+          <button type="submit" class="btn" id="subirBtn">Subir y detectar campos</button>
+        </form>
+      </div>
+
+      <div class="card">
+        <h2>Plantillas disponibles</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Nombre</th>
+              <th>Cliente</th>
+              <th>Campos</th>
+              <th>Subida</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="tablaPlantillas">
+            <tr><td colspan="5" class="text-muted text-center">Cargando...</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="card">
+        <h2>Generar informe a partir de una plantilla</h2>
+        <label for="plantillaSelect">Plantilla</label>
+        <select id="plantillaSelect">
+          <option value="">Selecciona una plantilla...</option>
+        </select>
+
+        <div id="camposFormulario"></div>
+
+        <div class="alert" id="generarAlertBox"></div>
+        <button type="button" class="btn" id="generarBtn" disabled>Generar informe</button>
+      </div>
+
+      <div class="card">
+        <h2>Informes generados</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Plantilla</th>
+              <th>Cliente</th>
+              <th>Generado</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="tablaInformesPlantilla">
+            <tr><td colspan="4" class="text-muted text-center">Cargando...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </main>
+  </div>
+
+  <div class="modal-backdrop" id="modalBackdrop">
+    <div class="modal modal-wide">
+      <h2>Editar campos de la plantilla</h2>
+      <div id="camposEditor"></div>
+      <div class="alert" id="modalAlertBox"></div>
+      <div class="toolbar">
+        <button type="button" class="btn btn-auto" id="guardarCamposBtn">Guardar cambios</button>
+        <button type="button" class="btn secondary btn-auto" id="cerrarModalBtn">Cancelar</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="js/informes-plantillas.js"></script>
+</body>
+</html>
