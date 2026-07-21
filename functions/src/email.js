@@ -96,6 +96,8 @@ async function enviarBienvenidaEmpleado({ nombre, correo, password }) {
       `Usuario: ${correo}`,
       `Contraseña temporal: ${password}`,
       "",
+      "Por seguridad, la plataforma te pedirá cambiar esta contraseña la primera vez que ingreses.",
+      "",
       "Ingresa aquí: https://cinco-conecta.web.app/login.html",
       "",
       "Cinco S.A.S."
@@ -103,4 +105,34 @@ async function enviarBienvenidaEmpleado({ nombre, correo, password }) {
   });
 }
 
-module.exports = { enviarConfirmacionPostulacion, enviarNotificacionRRHH, enviarCambioEtapa, enviarBienvenidaEmpleado, ETAPA_TEXTO };
+async function enviarNuevaPasswordEmpleado({ nombre, correo, password }) {
+  const transporter = buildTransporter();
+  await transporter.sendMail({
+    from: `"Cinco Conecta" <${process.env.SMTP_USER}>`,
+    to: correo,
+    subject: "Cinco Conecta — se generó una nueva contraseña temporal",
+    text: [
+      `Hola ${nombre},`,
+      "",
+      "Un administrador generó una nueva contraseña temporal para tu cuenta de Cinco Conecta.",
+      "",
+      `Usuario: ${correo}`,
+      `Nueva contraseña temporal: ${password}`,
+      "",
+      "Por seguridad, la plataforma te pedirá cambiarla apenas ingreses.",
+      "",
+      "Ingresa aquí: https://cinco-conecta.web.app/login.html",
+      "",
+      "Cinco S.A.S."
+    ].join("\n")
+  });
+}
+
+module.exports = {
+  enviarConfirmacionPostulacion,
+  enviarNotificacionRRHH,
+  enviarCambioEtapa,
+  enviarBienvenidaEmpleado,
+  enviarNuevaPasswordEmpleado,
+  ETAPA_TEXTO
+};

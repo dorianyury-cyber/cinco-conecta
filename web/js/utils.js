@@ -39,6 +39,9 @@ export function friendlyError(err) {
     "auth/wrong-password": "Correo o contraseña incorrectos.",
     "auth/user-not-found": "No existe una cuenta con ese correo.",
     "auth/too-many-requests": "Demasiados intentos. Intenta de nuevo más tarde.",
+    "auth/weak-password": "La contraseña debe tener al menos 6 caracteres.",
+    "auth/requires-recent-login": "Por seguridad, vuelve a iniciar sesión antes de intentar esto de nuevo.",
+    "auth/email-already-exists": "Ya existe una cuenta con ese correo.",
     "permission-denied": "No tienes permiso para realizar esta acción.",
     "resource-exhausted": "Se alcanzó el límite de intentos. Intenta más tarde.",
     "invalid-argument": err?.message || "Datos inválidos.",
@@ -134,7 +137,11 @@ function ocultarNavSoloAdmin() {
 /**
  * Verifica sesión + carga el perfil desde staff/{uid} (incluye `rol`:
  * "admin" o "empleado"). Si la cuenta fue desactivada por un admin, se
- * cierra la sesión.
+ * cierra la sesión. Si el perfil tiene `debeCambiarPassword: true`
+ * (cuenta recién invitada, o a la que un admin le generó una contraseña
+ * nueva), se manda a cambiar-password.html sin importar qué página haya
+ * pedido el login — esa página nunca termina de cargar para esa cuenta
+ * hasta que cambie la contraseña.
  */
 export function requireAuth() {
   return new Promise((resolve) => {
@@ -147,6 +154,11 @@ export function requireAuth() {
       if (!perfil || perfil.estado === "bloqueado") {
         await signOut(auth);
         window.location.href = "login.html?error=sin-acceso";
+        return;
+      }
+      const enCambiarPassword = window.location.pathname.endsWith("cambiar-password.html");
+      if (perfil.debeCambiarPassword && !enCambiarPassword) {
+        window.location.href = "cambiar-password.html";
         return;
       }
       actualizarCajaUsuario(perfil.nombre || user.email);

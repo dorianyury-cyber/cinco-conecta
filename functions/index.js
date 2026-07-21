@@ -4,7 +4,15 @@ admin.initializeApp();
 const { enviarPostulacion, consultarEstado } = require("./src/postulaciones");
 const { onCandidatoEtapaCambiada } = require("./src/notificaciones");
 const { obtenerArchivoBase64 } = require("./src/storage");
-const { invitarEmpleado } = require("./src/empleados");
+const {
+  invitarEmpleado,
+  cambiarEstadoEmpleado,
+  cambiarRolEmpleado,
+  renombrarEmpleado,
+  reenviarInvitacion,
+  eliminarEmpleado,
+  confirmarCambioPassword
+} = require("./src/empleados");
 const { responderEncuesta } = require("./src/encuestas");
 const { reportarIncidente, subirDocumento } = require("./src/hseq");
 const {
@@ -20,6 +28,12 @@ exports.consultarEstado = consultarEstado;
 exports.onCandidatoEtapaCambiada = onCandidatoEtapaCambiada;
 exports.obtenerArchivoBase64 = obtenerArchivoBase64;
 exports.invitarEmpleado = invitarEmpleado;
+exports.cambiarEstadoEmpleado = cambiarEstadoEmpleado;
+exports.cambiarRolEmpleado = cambiarRolEmpleado;
+exports.renombrarEmpleado = renombrarEmpleado;
+exports.reenviarInvitacion = reenviarInvitacion;
+exports.eliminarEmpleado = eliminarEmpleado;
+exports.confirmarCambioPassword = confirmarCambioPassword;
 exports.responderEncuesta = responderEncuesta;
 exports.reportarIncidente = reportarIncidente;
 exports.subirDocumento = subirDocumento;

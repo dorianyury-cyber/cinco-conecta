@@ -31,6 +31,7 @@
       <div class="spacer"></div>
       <div class="user-box">
         <div id="userName">-</div>
+        <a href="cambiar-password.html" class="btn secondary btn-auto mt-4">🔑 Cambiar contraseña</a>
         <button class="btn secondary logout-btn" id="logoutBtn">Cerrar sesión</button>
       </div>
     </aside>
@@ -60,16 +61,34 @@
           <thead>
             <tr>
               <th>Nombre</th>
+              <th>Correo</th>
               <th>Rol</th>
               <th>Estado</th>
+              <th></th>
             </tr>
           </thead>
           <tbody id="tablaEmpleados">
-            <tr><td colspan="3" class="text-muted text-center">Cargando...</td></tr>
+            <tr><td colspan="5" class="text-muted text-center">Cargando...</td></tr>
           </tbody>
         </table>
       </div>
     </main>
+  </div>
+
+  <div class="modal-backdrop" id="modalBackdrop">
+    <div class="modal">
+      <h2>Cambiar nombre</h2>
+      <form id="renombrarForm">
+        <input type="hidden" id="renombrarUid">
+        <label for="renombrarNombre">Nombre completo</label>
+        <input type="text" id="renombrarNombre" required maxlength="100">
+        <div class="alert" id="renombrarAlertBox"></div>
+        <div class="toolbar">
+          <button type="submit" class="btn btn-auto" id="renombrarGuardarBtn">Guardar</button>
+          <button type="button" class="btn secondary btn-auto" id="renombrarCancelarBtn">Cancelar</button>
+        </div>
+      </form>
+    </div>
   </div>
 
   <script type="module" src="js/empleados.js"></script>
