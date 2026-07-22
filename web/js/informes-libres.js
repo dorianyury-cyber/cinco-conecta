@@ -1110,12 +1110,21 @@ async function importarDocx(file) {
         // que las fotos se perdían por completo. Se extrae cada imagen
         // como su propio bloque, en el orden en que aparece; cualquier
         // celda de puro texto (ej. un título de sección dentro de la
-        // misma tabla) se agrega como párrafo.
+        // misma tabla) se agrega como párrafo. El título/fuente que
+        // acompañan a la tabla completa (ej. "Imagen 1. Equipo instalado
+        // ..." antes de la tabla, "Fuente: ..." después) se asignan a la
+        // PRIMERA foto encontrada — el modelo de bloques no tiene forma de
+        // representar "una sola leyenda para varias fotos", así que es
+        // mejor que quede en la primera a que se pierda por completo.
+        const tituloTablaFotos = quitarCaptionAnterior(idx);
+        const pieTablaFotos = marcarFuenteSiguiente(idx);
+        let esLaPrimeraImagen = true;
         for (const fila of filasNodo) {
           for (const celda of [...fila.children]) {
             const imgEnCelda = celda.querySelector("img");
             if (imgEnCelda) {
-              const bloqueImg = await subirImagenDeNodoImg(imgEnCelda, "", "");
+              const bloqueImg = await subirImagenDeNodoImg(imgEnCelda, esLaPrimeraImagen ? tituloTablaFotos : "", esLaPrimeraImagen ? pieTablaFotos : "");
+              esLaPrimeraImagen = false;
               if (bloqueImg) nuevosBloques.push(bloqueImg);
             } else {
               const textoCelda = celda.textContent.trim();
