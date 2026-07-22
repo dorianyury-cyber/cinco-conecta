@@ -939,8 +939,11 @@ async function subirImagenImportada(base64, contentType) {
 }
 
 // ---------------------------------------------------------------------
-// Preparar el .docx ANTES de pasárselo a mammoth (dos arreglos sobre el
+// Preparar el .docx ANTES de pasárselo a mammoth (tres arreglos sobre el
 // XML crudo, ver detalle de cada uno más abajo):
+// 0. Quitar la Tabla de Contenido / Índice de Imágenes/Tablas NATIVOS de
+//    Word (ver quitarTablasDeContenidoNativas más abajo) — Cinco Conecta
+//    genera los suyos propios, mejor formateados.
 // 1. Reparar encabezados "disfrazados" — verificado contra un informe
 //    real de Cinco S.A.S.: cuando un título de Word no usa el estilo con
 //    nombre "Título 1/2/3" sino que se arma con la numeración automática
@@ -960,6 +963,63 @@ async function subirImagenImportada(base64, contentType) {
 // ---------------------------------------------------------------------
 
 const NIVEL_A_ESTILO_TITULO = { 1: "Ttulo1", 2: "Ttulo2", 3: "TituloAutoDetectado3" };
+
+// Si el Word original ya trae su propia Tabla de Contenido / Índice de
+// Imágenes / Índice de Tablas nativos de Word (campos TOC autogenerados
+// por Word — verificado contra el informe real: usa exactamente esto),
+// esos párrafos se importaban como texto suelto sin ningún formato (sin
+// puntos guía, sin numeración de página real), quedando mezclados con el
+// contenido del cuerpo y duplicando lo que Cinco Conecta ya genera solo y
+// mejor (con número de página real y formato consistente). Se quita el
+// campo TOC completo: desde el párrafo que trae su fldChar "begin" hasta
+// el párrafo que trae el fldChar "end" que le corresponde — contando el
+// anidamiento, porque adentro cada entrada trae sus propios campos
+// PAGEREF (número de página) que también abren y cierran con begin/end.
+// No basta con quitar por estilo de párrafo (TDC1/TDC2/"Tabladeilustraciones"):
+// el fldChar "end" de cada campo TOC puede caer en un párrafo SIN ese
+// estilo, y quitar solo los de estilo TDC/Tabladeilustraciones deja un
+// "end" huérfano que rompe el parser de mammoth (verificado: así fallaba).
+function quitarTablasDeContenidoNativas(docXml) {
+  const parrafos = docXml.match(/<w:p [^>]*>[\s\S]*?<\/w:p>/g) || [];
+  let cursor = 0;
+  const rangos = parrafos.map((p) => {
+    const inicio = docXml.indexOf(p, cursor);
+    cursor = inicio + p.length;
+    return { texto: p, inicio, fin: cursor };
+  });
+
+  const aQuitar = new Set();
+  rangos.forEach((r, i) => {
+    if (!/<w:instrText[^>]*>\s*TOC\b/.test(r.texto)) return;
+    let profundidad = 0;
+    let j = i;
+    let encontrado = false;
+    for (; j < rangos.length; j++) {
+      const begins = (rangos[j].texto.match(/<w:fldChar w:fldCharType="begin"\s*\/>/g) || []).length;
+      const ends = (rangos[j].texto.match(/<w:fldChar w:fldCharType="end"\s*\/>/g) || []).length;
+      profundidad += begins - ends;
+      aQuitar.add(j);
+      if (profundidad <= 0 && j >= i) { encontrado = true; break; }
+    }
+    if (!encontrado) {
+      // No se encontró el cierre (documento con una estructura de campo
+      // atípica) — mejor no tocar nada de este campo que arriesgar
+      // romper el documento.
+      for (let k = i; k <= j && k < rangos.length; k++) aQuitar.delete(k);
+    }
+  });
+
+  let resultado = "";
+  let ultimoFin = 0;
+  rangos.forEach((r, i) => {
+    if (aQuitar.has(i)) {
+      resultado += docXml.slice(ultimoFin, r.inicio);
+      ultimoFin = r.fin;
+    }
+  });
+  resultado += docXml.slice(ultimoFin);
+  return resultado;
+}
 
 // Gráficos nativos de Excel/Word (no una foto pegada) y objetos OLE
 // incrustados (ej. una hoja de Excel insertada como objeto) no tienen
@@ -1006,6 +1066,8 @@ async function prepararDocxAntesDeImportar(buffer) {
 
   let docXml = await docXmlFile.async("string");
   let stylesXml = await stylesXmlFile.async("string");
+
+  docXml = quitarTablasDeContenidoNativas(docXml);
 
   // El documento puede no traer un estilo con nombre "heading 3" real (los
   // niveles 1 y 2 casi siempre existen aunque no se usen, por venir en la

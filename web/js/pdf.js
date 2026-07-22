@@ -529,7 +529,26 @@ export function agregarSeccionReferencias(doc, referencias) {
 export function agregarBloqueTitulo(doc, y, nivel, numero, texto, contadores) {
   const anchoPagina = doc.internal.pageSize.getWidth();
   const anchoContenido = anchoPagina - MARGEN_APA * 2;
-  let yActual = saltoDePaginaSiNecesario(doc, y, 14);
+
+  let yActual;
+  if (nivel === 1 && y > MARGEN_APA + 2) {
+    // Cada sección principal (Título 1) arranca en página nueva — así el
+    // informe se lee como capítulos bien delimitados en vez de amontonar
+    // la siguiente sección contra el final de la anterior. Si ya estamos
+    // justo al comienzo de una página en blanco (ej. la primera sección
+    // del informe, recién salida de la portada/índices) no se agrega una
+    // página de más.
+    doc.addPage();
+    yActual = MARGEN_APA;
+  } else if (nivel === 1) {
+    yActual = y;
+  } else {
+    // Título 2/3: un poco de aire extra antes (además del salto de
+    // página si no cabe), para separarlo con claridad del párrafo o
+    // bloque anterior en vez de quedar pegado.
+    yActual = saltoDePaginaSiNecesario(doc, y + 5, 14);
+  }
+
   if (contadores) contadores.indiceTitulos.push({ nivel, numero, texto, pagina: paginaVisible(doc) });
 
   const tamanos = { 1: 14, 2: 12, 3: 11 };
@@ -542,13 +561,15 @@ export function agregarBloqueTitulo(doc, y, nivel, numero, texto, contadores) {
   } else {
     doc.text(lineas, MARGEN_APA, yActual);
   }
-  yActual += lineas.length * ((tamanos[nivel] || 11) / 2.1) + 3;
+  yActual += lineas.length * ((tamanos[nivel] || 11) / 2.1) + 4;
 
   if (nivel === 1) {
     doc.setDrawColor(...AMBAR);
     doc.setLineWidth(0.6);
     doc.line(MARGEN_APA, yActual - 2, MARGEN_APA + anchoContenido, yActual - 2);
-    yActual += 3;
+    yActual += 5;
+  } else if (nivel === 2) {
+    yActual += 2;
   }
   return yActual;
 }
@@ -592,13 +613,35 @@ export function agregarBloqueImagen(doc, y, dataUrl, titulo, pie, contadores, et
       const altoFinal = img.naturalHeight * escala;
 
       const numero = etiqueta === "Tabla" ? (contadores.tabla += 1) : (contadores.figura += 1);
-      let yActual = saltoDePaginaSiNecesario(doc, y, altoFinal + 20);
+
+      // Se mide el título y la nota/fuente ANTES de decidir si cabe, para
+      // que el bloque completo (título + imagen + nota) se trate como una
+      // sola unidad que cabe entera o salta entera a la página siguiente
+      // — un cálculo fijo ("+20") subestimaba el espacio real cuando el
+      // título o la nota ocupaban más de una línea, dejando la imagen
+      // apretada contra el borde inferior de la página.
+      doc.setFont("times", "bold");
+      doc.setFontSize(10);
+      const tituloCompleto = `${etiqueta} ${numero}.${titulo ? " " + titulo : ""}`;
+      const lineasTitulo = doc.splitTextToSize(tituloCompleto, anchoContenido);
+      const altoTitulo = lineasTitulo.length * 5 + 6;
+
+      let lineasPie = [];
+      let altoPie = 0;
+      if (pie) {
+        doc.setFont("times", "italic");
+        doc.setFontSize(9);
+        lineasPie = doc.splitTextToSize(pie, anchoContenido);
+        altoPie = lineasPie.length * 4.5 + 3;
+      }
+
+      let yActual = saltoDePaginaSiNecesario(doc, y, altoTitulo + altoFinal + 5 + altoPie);
       const entradaIndice = { numero, titulo: titulo || "", pagina: paginaVisible(doc) };
       if (etiqueta === "Tabla") contadores.indiceTablas.push(entradaIndice); else contadores.indiceFiguras.push(entradaIndice);
       doc.setFont("times", "bold");
       doc.setFontSize(10);
-      doc.text(`${etiqueta} ${numero}.${titulo ? " " + titulo : ""}`, centroX, yActual, { align: "center" });
-      yActual += 6;
+      doc.text(lineasTitulo, centroX, yActual, { align: "center" });
+      yActual += altoTitulo;
 
       const x = MARGEN_APA + (anchoContenido - anchoFinal) / 2;
       const formato = dataUrl.startsWith("data:image/png") ? "PNG" : "JPEG";
@@ -608,9 +651,8 @@ export function agregarBloqueImagen(doc, y, dataUrl, titulo, pie, contadores, et
       if (pie) {
         doc.setFont("times", "italic");
         doc.setFontSize(9);
-        const lineasPie = doc.splitTextToSize(pie, anchoContenido);
         doc.text(lineasPie, centroX, yActual, { align: "center" });
-        yActual += lineasPie.length * 4.5 + 3;
+        yActual += altoPie;
       }
       resolve(yActual + 4);
     };
