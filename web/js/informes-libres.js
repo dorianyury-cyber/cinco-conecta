@@ -1280,6 +1280,7 @@ function renderBloque(bloque, i, numero) {
         <div class="toolbar mt-4">
           <button type="button" class="btn secondary btn-auto" data-accion="agregarFila" data-indice="${i}" ${dis}>+ Fila</button>
           <button type="button" class="btn secondary btn-auto" data-accion="agregarColumna" data-indice="${i}" ${dis}>+ Columna</button>
+          <button type="button" class="btn secondary btn-auto" data-accion="cambiarImagen" data-indice="${i}" ${dis}>🖼️ Convertir a imagen (subir captura)</button>
         </div>
         <label>Nota / fuente (va debajo, ej. "Fuente: Elaboración propia")</label>
         <input type="text" data-campo="pieTabla" value="${(bloque.pie || "").replace(/"/g, "&quot;")}" ${dis}>
