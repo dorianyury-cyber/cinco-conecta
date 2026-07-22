@@ -614,9 +614,40 @@ function puedeEditarInforme() {
   return informeActual.autorUid === uid && informeActual.estado === "borrador";
 }
 
+// ---------------------------------------------------------------------
+// Firestore no admite arreglos anidados directamente dentro de otro
+// arreglo (un arreglo cuyos elementos son a su vez arreglos) — y una
+// tabla de datos estructurada (bloque "tabla" sin archivo/imagen) guarda
+// justo eso: `filas` es un arreglo de filas, y cada fila es un arreglo de
+// celdas. Se codifica cada fila como un objeto `{c: [...]}` antes de
+// guardar (un mapa que CONTIENE un arreglo sí es válido, lo que no se
+// permite es un arreglo DENTRO de otro arreglo sin un mapa de por medio)
+// y se decodifica de vuelta al abrir el informe — el resto del código
+// (edición, vista previa, generación de PDF) sigue trabajando con
+// `filas` como un arreglo de arreglos normal, sin enterarse de esto.
+// ---------------------------------------------------------------------
+
+function codificarBloquesParaFirestore(listaBloques) {
+  return listaBloques.map((b) => {
+    if (b.tipo === "tabla" && Array.isArray(b.filas)) {
+      return { ...b, filas: b.filas.map((fila) => ({ c: fila })) };
+    }
+    return b;
+  });
+}
+
+function decodificarBloquesDesdeFirestore(listaBloques) {
+  return listaBloques.map((b) => {
+    if (b.tipo === "tabla" && Array.isArray(b.filas)) {
+      return { ...b, filas: b.filas.map((fila) => (Array.isArray(fila) ? fila : fila?.c || [])) };
+    }
+    return b;
+  });
+}
+
 function abrirEditor(informe) {
   informeActual = informe;
-  bloques = JSON.parse(JSON.stringify(informe.bloques || []));
+  bloques = decodificarBloquesDesdeFirestore(JSON.parse(JSON.stringify(informe.bloques || [])));
   referencias = JSON.parse(JSON.stringify(informe.referencias && informe.referencias.length ? informe.referencias : REFERENCIAS_POR_DEFECTO));
   ultimoGuardadoSnapshot = snapshotBorrador(); // línea base: lo último realmente guardado en Firestore
 
@@ -683,7 +714,7 @@ async function guardarBloques(extra = {}) {
   btn.disabled = true;
   try {
     await updateDoc(doc(db, "informesLibres", informeActual.id), {
-      bloques,
+      bloques: codificarBloquesParaFirestore(bloques),
       referencias,
       actualizadoEn: serverTimestamp(),
       ...extra
