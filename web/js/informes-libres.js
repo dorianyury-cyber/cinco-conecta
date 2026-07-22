@@ -671,8 +671,9 @@ function sincronizarBloquesDesdeDOM() {
     if (b.tipo.startsWith("titulo") || b.tipo === "parrafo") {
       const el = campo("texto");
       if (el) b.texto = el.value;
-    } else if (b.tipo === "imagen" || (b.tipo === "tabla" && b.archivo)) {
-      // Imagen, o tabla cargada como imagen (botón "+ Tabla") — mismos campos.
+    } else if (b.tipo === "imagen" || b.tipo === "imagenPendiente" || (b.tipo === "tabla" && b.archivo)) {
+      // Imagen, imagen pendiente de subir, o tabla cargada como imagen
+      // (botón "+ Tabla") — mismos campos.
       const pieEl = campo("pie");
       if (pieEl) b.pie = pieEl.value;
       const tituloEl = campo("tituloImagen");
@@ -799,23 +800,56 @@ async function subirImagenImportada(base64, contentType) {
 }
 
 // ---------------------------------------------------------------------
-// Reparar encabezados "disfrazados" antes de pasarle el documento a
-// mammoth. Verificado contra un informe real de Cinco S.A.S.: cuando un
-// título de Word no usa el estilo con nombre "Título 1/2/3" sino que se
-// arma con la numeración automática de la cinta (viñeta/numeración +
-// "Nivel de esquema" en Párrafo > Numeración), mammoth no lo reconoce
-// como encabezado — lo convierte en una lista (<ul>/<ol><li>) sin
-// importar qué otro estilo tenga el párrafo, y termina como un párrafo
-// suelto con un "•" delante en vez de un bloque de Título numerado.
-// La señal confiable de que un párrafo así SÍ es un título (y no una
-// lista real) es que Word le puso <w:outlineLvl> (nivel de esquema, lo
-// que alimenta la navegación y la Tabla de Contenido nativa de Word) — un
-// párrafo de una lista común nunca tiene esa marca. El nivel de la lista
-// (<w:ilvl>) indica a qué nivel de título corresponde (0→Título 1,
-// 1→Título 2, 2 o más→Título 3).
+// Preparar el .docx ANTES de pasárselo a mammoth (dos arreglos sobre el
+// XML crudo, ver detalle de cada uno más abajo):
+// 1. Reparar encabezados "disfrazados" — verificado contra un informe
+//    real de Cinco S.A.S.: cuando un título de Word no usa el estilo con
+//    nombre "Título 1/2/3" sino que se arma con la numeración automática
+//    de la cinta (viñeta/numeración + "Nivel de esquema" en Párrafo >
+//    Numeración), mammoth no lo reconoce como encabezado — lo convierte
+//    en una lista (<ul>/<ol><li>) sin importar qué otro estilo tenga el
+//    párrafo, y termina como un párrafo suelto con un "•" delante en vez
+//    de un bloque de Título numerado. La señal confiable de que un
+//    párrafo así SÍ es un título (y no una lista real) es que Word le
+//    puso <w:outlineLvl> (nivel de esquema, lo que alimenta la
+//    navegación y la Tabla de Contenido nativa de Word) — un párrafo de
+//    una lista común nunca tiene esa marca. El nivel de la lista
+//    (<w:ilvl>) indica a qué nivel de título corresponde (0→Título 1,
+//    1→Título 2, 2 o más→Título 3).
+// 2. Marcar gráficos nativos/objetos OLE no importables (ver
+//    marcarObjetosNoImportables más abajo).
 // ---------------------------------------------------------------------
 
 const NIVEL_A_ESTILO_TITULO = { 1: "Ttulo1", 2: "Ttulo2", 3: "TituloAutoDetectado3" };
+
+// Gráficos nativos de Excel/Word (no una foto pegada) y objetos OLE
+// incrustados (ej. una hoja de Excel insertada como objeto) no tienen
+// forma confiable de extraerse como imagen — mammoth simplemente los
+// descarta en silencio, sin dejar ningún rastro en el HTML resultante, así
+// que el usuario ni se entera de que faltó contenido. En vez de intentarlo
+// y arriesgar una imagen rota o con texto superpuesto (el mismo problema ya
+// visto con cuadros de texto flotantes), se detecta su presencia en el XML
+// ANTES de convertir y se deja un marcador de texto en su lugar — el bucle
+// de importación lo reconoce y agrega un bloque de "imagen pendiente" con
+// un botón para que el usuario suba la captura real.
+const MARCADOR_OBJETO_NO_IMPORTADO = "CINCO_OBJETO_NO_IMPORTADO_MARCADOR";
+
+function marcarObjetosNoImportables(docXml) {
+  return docXml.replace(/<w:p [^>]*>[\s\S]*?<\/w:p>/g, (parrafo) => {
+    const tieneDibujo = /<w:drawing>/.test(parrafo);
+    const esImagenNormal = /2006\/picture"/.test(parrafo);
+    // Un objeto OLE incrustado (ej. una hoja de Excel insertada con
+    // "Insertar objeto") casi siempre trae una imagen de vista previa en
+    // formato VML (<v:imagedata>) — mammoth SÍ sabe extraer esa imagen de
+    // vista previa como una imagen normal, así que solo hace falta el
+    // marcador cuando el objeto NO trae esa vista previa (si no, se
+    // duplicaría la misma imagen: una vez bien importada + un marcador de
+    // "pendiente" innecesario).
+    const esObjetoOleSinVistaPrevia = /<w:object>/.test(parrafo) && !/<v:imagedata/.test(parrafo);
+    if (!((tieneDibujo && !esImagenNormal) || esObjetoOleSinVistaPrevia)) return parrafo;
+    return `${parrafo}<w:p><w:r><w:t>${MARCADOR_OBJETO_NO_IMPORTADO}</w:t></w:r></w:p>`;
+  });
+}
 
 function nivelTituloDesdeIlvl(ilvl) {
   if (ilvl === 0) return 1;
@@ -823,7 +857,7 @@ function nivelTituloDesdeIlvl(ilvl) {
   return 3;
 }
 
-async function repararEncabezadosDisfrazados(buffer) {
+async function prepararDocxAntesDeImportar(buffer) {
   const zip = await window.JSZip.loadAsync(buffer);
   const docXmlPath = "word/document.xml";
   const stylesXmlPath = "word/styles.xml";
@@ -861,6 +895,8 @@ async function repararEncabezadosDisfrazados(buffer) {
     return sinNumPr.replace("<w:pPr>", `<w:pPr><w:pStyle w:val="${styleId}"/>`);
   });
 
+  docXml = marcarObjetosNoImportables(docXml);
+
   zip.file(docXmlPath, docXml);
   zip.file(stylesXmlPath, stylesXml);
   return zip.generateAsync({ type: "arraybuffer" });
@@ -879,7 +915,7 @@ async function repararEncabezadosDisfrazados(buffer) {
 async function importarDocx(file) {
   let buffer = await file.arrayBuffer();
   try {
-    buffer = await repararEncabezadosDisfrazados(buffer);
+    buffer = await prepararDocxAntesDeImportar(buffer);
   } catch (err) {
     // Si la reparación falla por cualquier motivo, se sigue con el
     // documento tal cual — mejor un encabezado sin numerar que un import
@@ -927,6 +963,13 @@ async function importarDocx(file) {
     if (tag === "h1") { nuevosBloques.push({ tipo: "titulo1", texto: nodo.textContent.trim() }); continue; }
     if (tag === "h2") { nuevosBloques.push({ tipo: "titulo2", texto: nodo.textContent.trim() }); continue; }
     if (/^h[3-6]$/.test(tag)) { nuevosBloques.push({ tipo: "titulo3", texto: nodo.textContent.trim() }); continue; }
+
+    if (nodo.textContent.trim() === MARCADOR_OBJETO_NO_IMPORTADO) {
+      const tituloDetectado = quitarCaptionAnterior(idx);
+      const pieDetectado = marcarFuenteSiguiente(idx);
+      nuevosBloques.push({ tipo: "imagenPendiente", titulo: tituloDetectado, pie: pieDetectado });
+      continue;
+    }
 
     if (tag === "ul" || tag === "ol") {
       const texto = [...nodo.querySelectorAll("li")].map((li) => `• ${li.textContent.trim()}`).join("\n");
@@ -1071,6 +1114,7 @@ document.getElementById("inputImagenReemplazo").addEventListener("change", async
     const { data } = await llamada({ informeId: informeActual.id, archivoBase64: base64, tipo: "image/jpeg" });
     imagenesCache[data.path] = `data:image/jpeg;base64,${base64}`;
     bloques[i].archivo = { nombre: file.name, path: data.path, tipo: "image/jpeg", tamano: blob.size };
+    if (bloques[i].tipo === "imagenPendiente") bloques[i].tipo = "imagen";
     renderBloques();
   } catch (err) {
     showAlert(alertBox, friendlyError(err), "error");
@@ -1140,6 +1184,22 @@ function renderBloque(bloque, i, numero) {
       <div class="card item-card bloque-card" data-bloque="${i}">
         <label>Párrafo</label>
         <textarea rows="4" data-campo="texto" ${dis}>${bloque.texto || ""}</textarea>
+        ${controles}
+      </div>
+    `;
+  }
+
+  if (bloque.tipo === "imagenPendiente") {
+    return `
+      <div class="card item-card bloque-card bloque-pendiente" data-bloque="${i}">
+        <p class="text-sm">⚠️ Aquí había un gráfico o un objeto insertado en el Word original que no se pudo importar automáticamente (los gráficos nativos de Excel/Word y los objetos incrustados no se pueden convertir a imagen de forma confiable). Sube la captura real de la gráfica o tabla.</p>
+        <label>Título (va arriba, como "Figura N. Título")</label>
+        <input type="text" data-campo="tituloImagen" value="${(bloque.titulo || "").replace(/"/g, "&quot;")}" ${dis}>
+        <div class="toolbar mt-4">
+          <button type="button" class="btn btn-auto" data-accion="cambiarImagen" data-indice="${i}" ${dis}>📊 Subir imagen</button>
+        </div>
+        <label>Nota / fuente (va debajo, ej. "Fuente: Elaboración propia")</label>
+        <input type="text" data-campo="pie" value="${(bloque.pie || "").replace(/"/g, "&quot;")}" ${dis}>
         ${controles}
       </div>
     `;
@@ -1280,6 +1340,11 @@ document.getElementById("generarPdfBtn").addEventListener("click", async () => {
   const btn = document.getElementById("generarPdfBtn");
   const alertBox = document.getElementById("editorAlertBox");
   clearAlert(alertBox);
+  const pendientes = bloques.filter((b) => b.tipo === "imagenPendiente").length;
+  if (pendientes > 0) {
+    showAlert(alertBox, `Este informe todavía tiene ${pendientes} imagen(es) pendiente(s) por subir (los gráficos/objetos que no se pudieron importar automáticamente del Word). Súbelas o elimina esos bloques antes de generar el PDF.`, "error");
+    return;
+  }
   const textoOriginal = btn.textContent;
   btn.disabled = true;
   btn.textContent = "Generando...";

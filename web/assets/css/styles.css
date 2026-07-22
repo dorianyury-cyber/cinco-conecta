@@ -104,6 +104,7 @@ img { max-width: 100%; display: block; }
 
 /* Editor de bloques — Informes libres */
 .bloque-card { border-left: 3px solid var(--cinco-amber); }
+.bloque-pendiente { border-left: 3px solid var(--warning); background: #fff8ec; }
 .bloque-numero { color: var(--cinco-amber-dark); font-weight: 700; margin-right: 6px; }
 .preview-img { max-width: 100%; max-height: 220px; border-radius: 8px; display: block; margin-top: 8px; }
 .tabla-editor { width: 100%; border-collapse: collapse; margin-top: 8px; }
