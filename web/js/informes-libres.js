@@ -392,6 +392,62 @@ let modoMeta = "crear";
 const imagenesCache = {};
 const imagenesCargando = new Set();
 
+// ---------------------------------------------------------------------
+// Respaldo local (localStorage) + aviso al salir sin guardar. El editor
+// solo guarda en Firestore cuando el usuario hace clic en "Guardar
+// borrador" — si se recarga la página, se cierra la pestaña o se navega
+// a otra parte sin haber guardado, todo lo digitado se perdía sin
+// ningún aviso. Ahora: (1) se guarda una copia de los bloques/
+// referencias en localStorage cada pocos segundos mientras el editor
+// está abierto, y si al volver a abrir ese mismo informe se encuentra
+// una copia local más nueva que lo último guardado en Firestore, se
+// ofrece recuperarla; (2) el navegador muestra su aviso nativo de "hay
+// cambios sin guardar" si se intenta cerrar/recargar/navegar con
+// cambios pendientes.
+// ---------------------------------------------------------------------
+
+const PREFIJO_BORRADOR_LOCAL = "cincoConectaInformeLibreBorrador_";
+let ultimoGuardadoSnapshot = null; // JSON de {bloques, referencias} tal como quedó la última vez en Firestore
+let intervaloBorradorLocal = null;
+
+function snapshotBorrador() {
+  return JSON.stringify({ bloques, referencias });
+}
+
+function hayCambiosSinGuardar() {
+  if (!informeActual) return false;
+  sincronizarBloquesDesdeDOM();
+  sincronizarReferenciasDesdeDOM();
+  return snapshotBorrador() !== ultimoGuardadoSnapshot;
+}
+
+function guardarBorradorLocal() {
+  if (!informeActual) return;
+  try {
+    if (!hayCambiosSinGuardar()) { localStorage.removeItem(PREFIJO_BORRADOR_LOCAL + informeActual.id); return; }
+    localStorage.setItem(PREFIJO_BORRADOR_LOCAL + informeActual.id, JSON.stringify({ bloques, referencias, guardadoEn: Date.now() }));
+  } catch (err) {
+    // localStorage lleno o deshabilitado (modo incógnito estricto, etc.)
+    // — no es crítico, el respaldo local es un extra, no la fuente de verdad.
+  }
+}
+
+function iniciarAutoguardadoLocal() {
+  detenerAutoguardadoLocal();
+  intervaloBorradorLocal = setInterval(guardarBorradorLocal, 4000);
+}
+
+function detenerAutoguardadoLocal() {
+  if (intervaloBorradorLocal) clearInterval(intervaloBorradorLocal);
+  intervaloBorradorLocal = null;
+}
+
+window.addEventListener("beforeunload", (e) => {
+  if (!hayCambiosSinGuardar()) return;
+  e.preventDefault();
+  e.returnValue = "";
+});
+
 const tablaInformes = document.getElementById("tablaInformes");
 const datalistClientes = document.getElementById("clientesConocidos");
 const contenedorBloques = document.getElementById("contenedorBloques");
@@ -562,14 +618,37 @@ function abrirEditor(informe) {
   informeActual = informe;
   bloques = JSON.parse(JSON.stringify(informe.bloques || []));
   referencias = JSON.parse(JSON.stringify(informe.referencias && informe.referencias.length ? informe.referencias : REFERENCIAS_POR_DEFECTO));
+  ultimoGuardadoSnapshot = snapshotBorrador(); // línea base: lo último realmente guardado en Firestore
+
+  try {
+    const crudo = localStorage.getItem(PREFIJO_BORRADOR_LOCAL + informe.id);
+    if (crudo) {
+      const borrador = JSON.parse(crudo);
+      const esDistinto = JSON.stringify({ bloques: borrador.bloques, referencias: borrador.referencias }) !== ultimoGuardadoSnapshot;
+      if (esDistinto && confirm("Se encontró contenido sin guardar de una sesión anterior de este informe (por ejemplo, si se cerró o recargó la página antes de guardar). ¿Quieres recuperarlo?")) {
+        bloques = borrador.bloques || bloques;
+        referencias = borrador.referencias || referencias;
+      } else {
+        localStorage.removeItem(PREFIJO_BORRADOR_LOCAL + informe.id);
+      }
+    }
+  } catch (err) {
+    // Borrador local corrupto o localStorage no disponible — se ignora,
+    // el informe sigue abriendo normal con lo último guardado en Firestore.
+  }
+
   document.getElementById("vistaLista").classList.add("hidden");
   document.getElementById("vistaEditor").classList.remove("hidden");
   renderCabeceraEditor();
   renderBloques();
   renderReferencias();
+  iniciarAutoguardadoLocal();
 }
 
 document.getElementById("volverListaBtn").addEventListener("click", () => {
+  if (hayCambiosSinGuardar() && !confirm("Tienes cambios sin guardar en este informe. Si sales ahora, se guarda una copia local para poder recuperarla la próxima vez que abras este informe, pero es mejor guardar el borrador antes de salir. ¿Salir de todos modos?")) return;
+  guardarBorradorLocal();
+  detenerAutoguardadoLocal();
   document.getElementById("vistaEditor").classList.add("hidden");
   document.getElementById("vistaLista").classList.remove("hidden");
   informeActual = null;
@@ -610,6 +689,8 @@ async function guardarBloques(extra = {}) {
       ...extra
     });
     informeActual = { ...informeActual, bloques: JSON.parse(JSON.stringify(bloques)), referencias: JSON.parse(JSON.stringify(referencias)), ...extra };
+    ultimoGuardadoSnapshot = snapshotBorrador();
+    try { localStorage.removeItem(PREFIJO_BORRADOR_LOCAL + informeActual.id); } catch (err) { /* no crítico */ }
     renderCabeceraEditor();
     renderBloques();
     renderReferencias();
