@@ -1056,6 +1056,27 @@ async function importarDocx(file) {
     return fuente;
   }
 
+  // Sube la imagen de un nodo <img> ya localizado en imagenesCapturadas y
+  // devuelve el bloque resultante — nunca lanza: si falla la subida (red,
+  // límite de subidas seguidas, etc.) devuelve un bloque de "imagen
+  // pendiente" en vez de perder la imagen en silencio (un documento con
+  // varias imágenes las sube una por una, y basta con que UNA falle a
+  // mitad de camino para que desaparezca sin que el usuario se entere).
+  async function subirImagenDeNodoImg(imgNodo, titulo, pie) {
+    const m = (imgNodo.getAttribute("src") || "").match(/PLACEHOLDER_IMG:(\d+)/);
+    const capturada = m && imagenesCapturadas[Number(m[1])];
+    if (!capturada) return null;
+    try {
+      const bloqueImg = await subirImagenImportada(capturada.base64, capturada.contentType);
+      bloqueImg.titulo = titulo;
+      bloqueImg.pie = pie;
+      return bloqueImg;
+    } catch (err) {
+      console.error("No se pudo importar una imagen del documento:", err);
+      return { tipo: "imagenPendiente", titulo, pie };
+    }
+  }
+
   for (let idx = 0; idx < nodos.length; idx++) {
     if (saltar.has(idx)) continue;
     const nodo = nodos[idx];
@@ -1081,6 +1102,29 @@ async function importarDocx(file) {
     if (tag === "table") {
       const filasNodo = [...nodo.querySelectorAll("tr")];
       if (filasNodo.length === 0) continue;
+      const imagenesEnTabla = [...nodo.querySelectorAll("img")];
+      if (imagenesEnTabla.length > 0) {
+        // Tabla usada como cuadrícula para acomodar fotos (ej. "REGISTRO
+        // FOTOGRÁFICO" en un anexo), no como dato tabular real — el modelo
+        // de tabla estructurada solo guarda el texto de cada celda, así
+        // que las fotos se perdían por completo. Se extrae cada imagen
+        // como su propio bloque, en el orden en que aparece; cualquier
+        // celda de puro texto (ej. un título de sección dentro de la
+        // misma tabla) se agrega como párrafo.
+        for (const fila of filasNodo) {
+          for (const celda of [...fila.children]) {
+            const imgEnCelda = celda.querySelector("img");
+            if (imgEnCelda) {
+              const bloqueImg = await subirImagenDeNodoImg(imgEnCelda, "", "");
+              if (bloqueImg) nuevosBloques.push(bloqueImg);
+            } else {
+              const textoCelda = celda.textContent.trim();
+              if (textoCelda) nuevosBloques.push({ tipo: "parrafo", texto: textoCelda });
+            }
+          }
+        }
+        continue;
+      }
       const columnas = [...filasNodo[0].children].map((c) => c.textContent.trim() || "Columna");
       const filas = filasNodo.slice(1).map((fila) => [...fila.children].map((c) => c.textContent.trim()));
       const tituloTabla = quitarCaptionAnterior(idx);
@@ -1096,27 +1140,10 @@ async function importarDocx(file) {
     // párrafo que contiene la imagen si además trae contenido normal.
     const imgEnNodo = tag === "img" ? nodo : nodo.querySelector?.("img");
     if (imgEnNodo) {
-      const m = (imgEnNodo.getAttribute("src") || "").match(/PLACEHOLDER_IMG:(\d+)/);
-      const capturada = m && imagenesCapturadas[Number(m[1])];
-      if (capturada) {
-        const tituloImagen = quitarCaptionAnterior(idx);
-        const pieImagen = marcarFuenteSiguiente(idx);
-        try {
-          const bloqueImg = await subirImagenImportada(capturada.base64, capturada.contentType);
-          bloqueImg.titulo = tituloImagen;
-          bloqueImg.pie = pieImagen;
-          nuevosBloques.push(bloqueImg);
-        } catch (err) {
-          // Si falla la subida (red, límite de subidas seguidas, etc.) NO
-          // hay que perder la imagen en silencio — un documento con varias
-          // imágenes las sube una por una, y basta con que UNA falle a
-          // mitad de camino para que desaparezca sin que el usuario se
-          // entere. Se deja un bloque de "imagen pendiente" en su lugar
-          // para que sepa que faltó algo y pueda reintentar con el botón.
-          console.error("No se pudo importar una imagen del documento:", err);
-          nuevosBloques.push({ tipo: "imagenPendiente", titulo: tituloImagen, pie: pieImagen });
-        }
-      }
+      const tituloImagen = quitarCaptionAnterior(idx);
+      const pieImagen = marcarFuenteSiguiente(idx);
+      const bloqueImg = await subirImagenDeNodoImg(imgEnNodo, tituloImagen, pieImagen);
+      if (bloqueImg) nuevosBloques.push(bloqueImg);
       continue;
     }
 
