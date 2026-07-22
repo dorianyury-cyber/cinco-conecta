@@ -870,14 +870,34 @@ function extraerFuente(texto) {
   return m ? m[2].trim() : "";
 }
 
+function esperar(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 async function subirImagenImportada(base64, contentType) {
   const blobOriginal = base64ABlob(base64, contentType);
   const blobComprimido = await comprimirImagen(blobOriginal);
   const base64Comprimido = await leerBlobComoBase64(blobComprimido);
   const llamada = httpsCallable(functions, "subirImagenInforme");
-  const { data } = await llamada({ informeId: informeActual.id, archivoBase64: base64Comprimido, tipo: "image/jpeg" });
-  imagenesCache[data.path] = `data:image/jpeg;base64,${base64Comprimido}`;
-  return { tipo: "imagen", archivo: { nombre: "imagen-importada.jpg", path: data.path, tipo: "image/jpeg", tamano: blobComprimido.size }, titulo: "", pie: "" };
+  // Un documento con varias imágenes las sube una por una, seguidas — si
+  // alguna falla por un problema transitorio de red (más probable cuantas
+  // más imágenes seguidas se suban), se reintenta una vez antes de darla
+  // por perdida, para no dejar un bloque de "imagen pendiente" de más por
+  // un simple hipo de red.
+  let intento = 0;
+  let ultimoError;
+  while (intento < 2) {
+    try {
+      const { data } = await llamada({ informeId: informeActual.id, archivoBase64: base64Comprimido, tipo: "image/jpeg" });
+      imagenesCache[data.path] = `data:image/jpeg;base64,${base64Comprimido}`;
+      return { tipo: "imagen", archivo: { nombre: "imagen-importada.jpg", path: data.path, tipo: "image/jpeg", tamano: blobComprimido.size }, titulo: "", pie: "" };
+    } catch (err) {
+      ultimoError = err;
+      intento += 1;
+      if (intento < 2) await esperar(1200);
+    }
+  }
+  throw ultimoError;
 }
 
 // ---------------------------------------------------------------------
@@ -1087,7 +1107,14 @@ async function importarDocx(file) {
           bloqueImg.pie = pieImagen;
           nuevosBloques.push(bloqueImg);
         } catch (err) {
+          // Si falla la subida (red, límite de subidas seguidas, etc.) NO
+          // hay que perder la imagen en silencio — un documento con varias
+          // imágenes las sube una por una, y basta con que UNA falle a
+          // mitad de camino para que desaparezca sin que el usuario se
+          // entere. Se deja un bloque de "imagen pendiente" en su lugar
+          // para que sepa que faltó algo y pueda reintentar con el botón.
           console.error("No se pudo importar una imagen del documento:", err);
+          nuevosBloques.push({ tipo: "imagenPendiente", titulo: tituloImagen, pie: pieImagen });
         }
       }
       continue;
@@ -1117,7 +1144,9 @@ document.getElementById("inputWord").addEventListener("change", async (e) => {
     }
     bloques.push(...nuevosBloques);
     renderBloques();
-    estadoEl.textContent = `Se agregaron ${nuevosBloques.length} bloques al final del informe. Revísalos antes de guardar.`;
+    const pendientes = nuevosBloques.filter((b) => b.tipo === "imagenPendiente").length;
+    const avisoPendientes = pendientes > 0 ? ` ⚠️ ${pendientes} imagen(es)/gráfico(s) no se pudieron importar automáticamente — revisa las tarjetas de advertencia y súbelas a mano.` : "";
+    estadoEl.textContent = `Se agregaron ${nuevosBloques.length} bloques al final del informe. Revísalos antes de guardar.${avisoPendientes}`;
   } catch (err) {
     estadoEl.textContent = "No se pudo importar el documento.";
     console.error(err);
@@ -1273,7 +1302,7 @@ function renderBloque(bloque, i, numero) {
   if (bloque.tipo === "imagenPendiente") {
     return `
       <div class="card item-card bloque-card bloque-pendiente" data-bloque="${i}">
-        <p class="text-sm">⚠️ Aquí había un gráfico o un objeto insertado en el Word original que no se pudo importar automáticamente (los gráficos nativos de Excel/Word y los objetos incrustados no se pueden convertir a imagen de forma confiable). Sube la captura real de la gráfica o tabla.</p>
+        <p class="text-sm">⚠️ Aquí había una imagen, gráfico o tabla en el Word original que no se pudo importar automáticamente (puede ser un gráfico nativo de Excel/Word, que no se puede convertir a imagen de forma confiable, o simplemente que falló la subida de esta imagen en particular). Sube la captura real.</p>
         <label>Título (va arriba, como "Figura N. Título")</label>
         <input type="text" data-campo="tituloImagen" value="${(bloque.titulo || "").replace(/"/g, "&quot;")}" ${dis}>
         <div class="toolbar mt-4">
