@@ -910,14 +910,21 @@ async function subirImagenImportada(base64, contentType) {
   const blobComprimido = await comprimirImagen(blobOriginal);
   const base64Comprimido = await leerBlobComoBase64(blobComprimido);
   const llamada = httpsCallable(functions, "subirImagenInforme");
-  // Un documento con varias imágenes las sube una por una, seguidas — si
-  // alguna falla por un problema transitorio de red (más probable cuantas
-  // más imágenes seguidas se suban), se reintenta una vez antes de darla
-  // por perdida, para no dejar un bloque de "imagen pendiente" de más por
-  // un simple hipo de red.
+  // Un documento con varias imágenes las sube una por una, SEGUIDAS —
+  // App Check (con reCAPTCHA v3) puede tratar una ráfaga de llamadas muy
+  // pegadas entre sí como actividad sospechosa y rechazarlas TODAS, no
+  // solo alguna al azar (ya se confirmó este comportamiento antes en este
+  // proyecto con pruebas automatizadas de navegador). Por eso se espera
+  // un momento ANTES de cada intento — no solo al reintentar — para que
+  // las llamadas queden espaciadas de por sí.
+  await esperar(700);
+  // Si alguna falla por un problema transitorio de red o de este mismo
+  // límite, se reintenta una vez antes de darla por perdida, para no
+  // dejar un bloque de "imagen pendiente" de más por un simple hipo.
+  const INTENTOS_MAXIMOS = 3;
   let intento = 0;
   let ultimoError;
-  while (intento < 2) {
+  while (intento < INTENTOS_MAXIMOS) {
     try {
       const { data } = await llamada({ informeId: informeActual.id, archivoBase64: base64Comprimido, tipo: "image/jpeg" });
       imagenesCache[data.path] = `data:image/jpeg;base64,${base64Comprimido}`;
@@ -925,7 +932,7 @@ async function subirImagenImportada(base64, contentType) {
     } catch (err) {
       ultimoError = err;
       intento += 1;
-      if (intento < 2) await esperar(1200);
+      if (intento < INTENTOS_MAXIMOS) await esperar(1500 * intento);
     }
   }
   throw ultimoError;
@@ -1506,6 +1513,26 @@ function renderBloques() {
     ? bloques.map((b, i) => renderBloque(b, i, numeros[i])).join("")
     : '<p class="text-muted text-center">Este informe todavía no tiene contenido. Usa los botones de abajo para agregar el primer bloque.</p>';
   actualizarEstadoBotonesNumeracion();
+  actualizarBadgePendientes();
+}
+
+// Aviso permanente (arriba, junto al estado del informe) de cuántas
+// imágenes quedaron pendientes por subir — para no tener que revisar
+// bloque por bloque en un informe largo para encontrarlas. Un clic salta
+// directo a la primera.
+function actualizarBadgePendientes() {
+  const badge = document.getElementById("pendientesBadge");
+  const indices = bloques.map((b, i) => (b.tipo === "imagenPendiente" ? i : -1)).filter((i) => i >= 0);
+  if (indices.length === 0) {
+    badge.classList.add("hidden");
+    return;
+  }
+  badge.textContent = `⚠️ ${indices.length} imagen(es) pendiente(s) — ir a la primera`;
+  badge.classList.remove("hidden");
+  badge.onclick = () => {
+    const el = document.querySelector(`[data-bloque="${indices[0]}"]`);
+    if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+  };
 }
 
 // ---------------------------------------------------------------------
