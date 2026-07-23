@@ -11,7 +11,7 @@ if (params.get("error") === "sin-acceso") {
 }
 
 onAuthStateChanged(auth, (user) => {
-  if (user) window.location.href = "inicio.html";
+  if (user) window.location.href = "bienvenida.html";
 });
 
 form.addEventListener("submit", async (e) => {
@@ -21,7 +21,7 @@ form.addEventListener("submit", async (e) => {
   submitBtn.textContent = "Ingresando...";
   try {
     await iniciarSesionStaff(document.getElementById("correo").value.trim(), document.getElementById("password").value);
-    window.location.href = "inicio.html";
+    window.location.href = "bienvenida.html";
   } catch (err) {
     showAlert(alertBox, friendlyError(err), "error");
     submitBtn.disabled = false;

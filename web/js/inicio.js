@@ -15,29 +15,39 @@ function fechaMenosDias(dias) {
 
 function semaforoHtml(filas) {
   return filas.map((f) => `
-    <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:10px;background:var(--sidebar-bg);">
-      <span class="badge ${f.tono}" style="min-width:38px;text-align:center;font-size:13px;">${f.valor}</span>
-      <div style="flex:1;">
-        <div style="font-weight:600;font-size:13.5px;">${f.titulo}</div>
-        <div class="text-muted" style="font-size:12px;">${f.detalle}</div>
+    <div class="semaforo-fila">
+      <span class="badge ${f.tono}">${f.valor}</span>
+      <div class="semaforo-texto">
+        <div class="semaforo-titulo">${f.titulo}</div>
+        <div class="text-muted semaforo-detalle">${f.detalle}</div>
       </div>
     </div>
   `).join("");
 }
 
-function barChartHtml(filas) {
+// El ancho de cada barra se asigna vía `.style.width` en JS (no como
+// `style="width:...%"` embebido en el HTML) porque el CSP del proyecto
+// (`style-src 'self'`, sin 'unsafe-inline') bloquea cualquier atributo
+// style presente en el marcado — incluido el que llega vía innerHTML —
+// pero SÍ permite que un script ya autorizado asigne estilos por CSSOM.
+function renderBarChart(container, filas) {
   if (filas.length === 0) {
-    return `<p class="text-muted" style="font-size:12.5px;">Sin datos todavía.</p>`;
+    container.innerHTML = `<p class="text-muted text-sm">Sin datos todavía.</p>`;
+    return;
   }
   const max = Math.max(...filas.map((f) => f.valor), 1);
-  return filas.map((f) => `
+  container.innerHTML = filas.map((f) => `
     <div class="bar-chart-row">
       <div class="bar-chart-label">${f.label}</div>
       <div class="bar-chart-track">
-        <div class="bar-chart-fill" style="width:${Math.max((f.valor / max) * 100, 8)}%;">${f.valor}</div>
+        <div class="bar-chart-fill" data-valor="${f.valor}">${f.valor}</div>
       </div>
     </div>
   `).join("");
+  container.querySelectorAll(".bar-chart-fill").forEach((el) => {
+    const valor = Number(el.dataset.valor);
+    el.style.width = `${Math.max((valor / max) * 100, 8)}%`;
+  });
 }
 
 const [staffSnap, vacantesAbiertasSnap, incidentesAbiertosCount, accionesSnap, auditoriasSnap, informesLibresSnap, informesPlantillaSnap] = await Promise.all([
@@ -131,7 +141,7 @@ document.getElementById("semaforoLista").innerHTML = semaforoHtml([
 ]);
 
 // ---- Gráfica "Estado general" ----
-document.getElementById("graficoGeneral").innerHTML = barChartHtml([
+renderBarChart(document.getElementById("graficoGeneral"), [
   { label: "Empleados activos", valor: empleadosActivos.length },
   { label: "Vacantes abiertas", valor: vacantesAbiertas.length },
   { label: "Incidentes abiertos", valor: incidentesAbiertosNum },
@@ -145,7 +155,7 @@ empleadosActivos.forEach((e) => {
   const nombreArea = AREAS[e.area] || "Sin área";
   porArea[nombreArea] = (porArea[nombreArea] || 0) + 1;
 });
-document.getElementById("graficoAreas").innerHTML = barChartHtml(
+renderBarChart(document.getElementById("graficoAreas"),
   Object.entries(porArea)
     .sort((a, b) => b[1] - a[1])
     .map(([label, valor]) => ({ label, valor }))
