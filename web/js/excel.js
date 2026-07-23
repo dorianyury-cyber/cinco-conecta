@@ -25,6 +25,35 @@ export function estilizarEncabezado(ws) {
   ws.views = [{ state: "frozen", ySplit: 1 }];
 }
 
+const ANCHO_MIN_COLUMNA_EXCEL = 10;
+const ANCHO_MAX_COLUMNA_EXCEL = 45;
+
+/**
+ * Ajusta el ancho de cada columna a su contenido real (encabezado + todas
+ * las filas ya cargadas) — mismo criterio que calcularAnchosColumna() en
+ * pdf.js para los informes en PDF: nunca una columna corta (Estado, Sí/No)
+ * desperdiciando el mismo espacio que una de texto libre (Notas,
+ * Propósitos). Se llama DESPUÉS de agregar todas las filas con
+ * ws.addRow(...), nunca antes.
+ */
+export function ajustarAnchoColumnas(ws, opciones = {}) {
+  const min = opciones.min ?? ANCHO_MIN_COLUMNA_EXCEL;
+  const max = opciones.max ?? ANCHO_MAX_COLUMNA_EXCEL;
+  ws.columns.forEach((columna) => {
+    let ancho = String(columna.header || "").length;
+    columna.eachCell({ includeEmpty: false }, (cell) => {
+      const valor = cell.value;
+      const texto = valor && typeof valor === "object" && Array.isArray(valor.richText)
+        ? valor.richText.map((p) => p.text).join("")
+        : String(valor ?? "");
+      texto.split("\n").forEach((linea) => {
+        if (linea.length > ancho) ancho = linea.length;
+      });
+    });
+    columna.width = Math.min(Math.max(ancho + 2, min), max);
+  });
+}
+
 export async function leerWorkbook(file) {
   const buffer = await file.arrayBuffer();
   const wb = new ExcelJS.Workbook();

@@ -85,6 +85,63 @@
           <label for="correoEmpleado">Correo</label>
           <input type="email" id="correoEmpleado" required maxlength="120">
 
+          <p class="form-section-title">Identificación</p>
+          <div class="form-grid">
+            <div>
+              <label for="cedulaEmpleado">Cédula</label>
+              <input type="text" id="cedulaEmpleado" maxlength="30">
+            </div>
+            <div>
+              <label for="telefonoEmpleado">Teléfono</label>
+              <input type="text" id="telefonoEmpleado" maxlength="30">
+            </div>
+          </div>
+
+          <p class="form-section-title">Cargo y ubicación</p>
+          <div class="form-grid">
+            <div>
+              <label for="cargoEmpleado">Cargo</label>
+              <input type="text" id="cargoEmpleado" maxlength="100" placeholder="Ej. Ingeniero de Interventoría">
+            </div>
+            <div>
+              <label for="areaEmpleado">Área</label>
+              <select id="areaEmpleado">
+                <option value="">Sin especificar</option>
+                <option value="experiencia">Experiencia</option>
+                <option value="sgi">SGI-HSEQ</option>
+                <option value="interventoria">Interventoría</option>
+                <option value="talento">Talento Humano</option>
+                <option value="administrativo">Administrativo y Gerencia</option>
+              </select>
+            </div>
+          </div>
+          <label for="jefeEmpleado">Jefe inmediato</label>
+          <select id="jefeEmpleado">
+            <option value="">Sin especificar</option>
+          </select>
+
+          <p class="form-section-title">Vinculación</p>
+          <div class="form-grid">
+            <div>
+              <label for="fechaIngresoEmpleado">Fecha de ingreso</label>
+              <input type="date" id="fechaIngresoEmpleado">
+            </div>
+            <div>
+              <label for="tipoVinculacionEmpleado">Tipo de vinculación</label>
+              <select id="tipoVinculacionEmpleado">
+                <option value="">Sin especificar</option>
+                <option value="indefinido">Indefinido</option>
+                <option value="fijo">Fijo</option>
+                <option value="prestacion_servicios">Prestación de servicios</option>
+                <option value="aprendiz">Aprendiz</option>
+              </select>
+            </div>
+            <div>
+              <label for="fechaNacimientoEmpleado">Fecha de nacimiento</label>
+              <input type="date" id="fechaNacimientoEmpleado">
+            </div>
+          </div>
+
           <div class="alert" id="alertBox"></div>
           <button type="submit" class="btn" id="invitarBtn">Enviar invitación</button>
         </form>
@@ -92,18 +149,35 @@
 
       <div class="card">
         <h2>Empleados con acceso</h2>
-        <table>
+        <div class="toolbar">
+          <button class="btn secondary btn-auto" id="plantillaBtn">📥 Descargar plantilla</button>
+          <button class="btn secondary btn-auto" id="cargarMasivoBtn">📤 Cargar Excel masivo</button>
+          <input type="file" id="excelInput" accept=".xlsx" class="hidden">
+        </div>
+        <p id="bulkProgress" class="text-muted hidden" style="font-size:12.5px;margin:-8px 0 12px;"></p>
+        <table class="tabla-fija">
+          <colgroup>
+            <col style="width:20%">
+            <col style="width:20%">
+            <col style="width:18%">
+            <col style="width:14%">
+            <col style="width:9%">
+            <col style="width:9%">
+            <col style="width:10%">
+          </colgroup>
           <thead>
             <tr>
               <th>Nombre</th>
               <th>Correo</th>
+              <th>Cargo</th>
+              <th>Área</th>
               <th>Rol</th>
               <th>Estado</th>
               <th></th>
             </tr>
           </thead>
           <tbody id="tablaEmpleados">
-            <tr><td colspan="5" class="text-muted text-center">Cargando...</td></tr>
+            <tr><td colspan="7" class="text-muted text-center">Cargando...</td></tr>
           </tbody>
         </table>
       </div>
@@ -121,6 +195,78 @@
         <div class="toolbar">
           <button type="submit" class="btn btn-auto" id="renombrarGuardarBtn">Guardar</button>
           <button type="button" class="btn secondary btn-auto" id="renombrarCancelarBtn">Cancelar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="modalEditarBackdrop">
+    <div class="modal modal-wide">
+      <h2>Editar datos del empleado</h2>
+      <form id="editarDatosForm">
+        <input type="hidden" id="editarUid">
+
+        <p class="form-section-title">Identificación</p>
+        <div class="form-grid">
+          <div>
+            <label for="editarCedula">Cédula</label>
+            <input type="text" id="editarCedula" maxlength="30">
+          </div>
+          <div>
+            <label for="editarTelefono">Teléfono</label>
+            <input type="text" id="editarTelefono" maxlength="30">
+          </div>
+        </div>
+
+        <p class="form-section-title">Cargo y ubicación</p>
+        <div class="form-grid">
+          <div>
+            <label for="editarCargo">Cargo</label>
+            <input type="text" id="editarCargo" maxlength="100">
+          </div>
+          <div>
+            <label for="editarArea">Área</label>
+            <select id="editarArea">
+              <option value="">Sin especificar</option>
+              <option value="experiencia">Experiencia</option>
+              <option value="sgi">SGI-HSEQ</option>
+              <option value="interventoria">Interventoría</option>
+              <option value="talento">Talento Humano</option>
+              <option value="administrativo">Administrativo y Gerencia</option>
+            </select>
+          </div>
+        </div>
+        <label for="editarJefe">Jefe inmediato</label>
+        <select id="editarJefe">
+          <option value="">Sin especificar</option>
+        </select>
+
+        <p class="form-section-title">Vinculación</p>
+        <div class="form-grid">
+          <div>
+            <label for="editarFechaIngreso">Fecha de ingreso</label>
+            <input type="date" id="editarFechaIngreso">
+          </div>
+          <div>
+            <label for="editarTipoVinculacion">Tipo de vinculación</label>
+            <select id="editarTipoVinculacion">
+              <option value="">Sin especificar</option>
+              <option value="indefinido">Indefinido</option>
+              <option value="fijo">Fijo</option>
+              <option value="prestacion_servicios">Prestación de servicios</option>
+              <option value="aprendiz">Aprendiz</option>
+            </select>
+          </div>
+          <div>
+            <label for="editarFechaNacimiento">Fecha de nacimiento</label>
+            <input type="date" id="editarFechaNacimiento">
+          </div>
+        </div>
+
+        <div class="alert" id="editarAlertBox"></div>
+        <div class="toolbar">
+          <button type="submit" class="btn btn-auto" id="editarGuardarBtn">Guardar</button>
+          <button type="button" class="btn secondary btn-auto" id="editarCancelarBtn">Cancelar</button>
         </div>
       </form>
     </div>

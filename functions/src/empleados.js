@@ -7,6 +7,41 @@ function generarPasswordTemporal() {
   return crypto.randomBytes(9).toString("base64").replace(/[^a-zA-Z0-9]/g, "").slice(0, 10);
 }
 
+const AREAS_VALIDAS = ["experiencia", "sgi", "interventoria", "talento", "administrativo"];
+const TIPOS_VINCULACION_VALIDOS = ["indefinido", "fijo", "prestacion_servicios", "aprendiz"];
+const FECHA_REGEX = /^\d{4}-\d{2}-\d{2}$/;
+
+function limpiarTexto(v, max) {
+  return String(v || "").trim().slice(0, max);
+}
+
+/**
+ * Valida y normaliza los 8 campos opcionales de perfil de empleado (cédula,
+ * teléfono, cargo, área, jefe inmediato, fecha de ingreso, tipo de
+ * vinculación, fecha de nacimiento), compartido entre invitarEmpleado y
+ * actualizarDatosEmpleado. area/tipoVinculacion inválidos se dejan vacíos
+ * en vez de lanzar error (fallback suave, mismo criterio que
+ * ministerio/estado en personas.js de LBDC Neiva) — la carga masiva desde
+ * Excel no debe abortar toda la fila por un valor de catálogo mal escrito.
+ */
+async function normalizarDatosPerfil(data) {
+  const cedula = limpiarTexto(data?.cedula, 30);
+  const telefono = limpiarTexto(data?.telefono, 30);
+  const cargo = limpiarTexto(data?.cargo, 100);
+  const area = AREAS_VALIDAS.includes(data?.area) ? data.area : "";
+  const fechaIngreso = FECHA_REGEX.test(data?.fechaIngreso) ? data.fechaIngreso : "";
+  const tipoVinculacion = TIPOS_VINCULACION_VALIDOS.includes(data?.tipoVinculacion) ? data.tipoVinculacion : "";
+  const fechaNacimiento = FECHA_REGEX.test(data?.fechaNacimiento) ? data.fechaNacimiento : "";
+
+  let jefeInmediatoUid = limpiarTexto(data?.jefeInmediatoUid, 128);
+  if (jefeInmediatoUid) {
+    const jefeSnap = await admin.firestore().collection("staff").doc(jefeInmediatoUid).get();
+    if (!jefeSnap.exists) jefeInmediatoUid = "";
+  }
+
+  return { cedula, telefono, cargo, area, jefeInmediatoUid, fechaIngreso, tipoVinculacion, fechaNacimiento };
+}
+
 async function requireEmpleado(request) {
   if (!request.auth) {
     throw new HttpsError("unauthenticated", "Debes iniciar sesión.");
@@ -42,6 +77,7 @@ const invitarEmpleado = onCall({ enforceAppCheck: true }, async (request) => {
     throw new HttpsError("invalid-argument", "Falta el nombre o el correo del empleado.");
   }
 
+  const datosPerfil = await normalizarDatosPerfil(request.data);
   const password = generarPasswordTemporal();
 
   let uid;
@@ -61,6 +97,7 @@ const invitarEmpleado = onCall({ enforceAppCheck: true }, async (request) => {
     estado: "activo",
     rol: "empleado",
     debeCambiarPassword: true,
+    ...datosPerfil,
     creadoEn: admin.firestore.FieldValue.serverTimestamp()
   });
 
@@ -137,6 +174,31 @@ const renombrarEmpleado = onCall({ enforceAppCheck: true }, async (request) => {
   return { ok: true };
 });
 
+// Actualiza SOLO los 8 campos de perfil de un empleado ya existente
+// (cédula, teléfono, cargo, área, jefe inmediato, fecha de ingreso, tipo de
+// vinculación, fecha de nacimiento) — nunca nombre/correo/estado/rol, que
+// siguen con sus propias funciones dedicadas.
+const actualizarDatosEmpleado = onCall({ enforceAppCheck: true }, async (request) => {
+  await requireAdmin(request);
+  const uid = String(request.data?.uid || "").trim();
+  if (!uid) {
+    throw new HttpsError("invalid-argument", "Falta el empleado.");
+  }
+  const ref = admin.firestore().collection("staff").doc(uid);
+  const snap = await ref.get();
+  if (!snap.exists) {
+    throw new HttpsError("not-found", "Ese empleado ya no existe.");
+  }
+
+  const datosPerfil = await normalizarDatosPerfil(request.data);
+  if (datosPerfil.jefeInmediatoUid === uid) {
+    throw new HttpsError("invalid-argument", "Un empleado no puede ser su propio jefe inmediato.");
+  }
+
+  await ref.update(datosPerfil);
+  return { ok: true };
+});
+
 // Genera una nueva contraseña temporal (ej. el empleado la olvidó) y vuelve
 // a exigir el cambio en el próximo ingreso.
 const reenviarInvitacion = onCall({ enforceAppCheck: true }, async (request) => {
@@ -207,6 +269,7 @@ module.exports = {
   cambiarEstadoEmpleado,
   cambiarRolEmpleado,
   renombrarEmpleado,
+  actualizarDatosEmpleado,
   reenviarInvitacion,
   eliminarEmpleado,
   confirmarCambioPassword

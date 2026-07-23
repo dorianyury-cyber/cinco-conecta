@@ -9,6 +9,7 @@ const {
   cambiarEstadoEmpleado,
   cambiarRolEmpleado,
   renombrarEmpleado,
+  actualizarDatosEmpleado,
   reenviarInvitacion,
   eliminarEmpleado,
   confirmarCambioPassword
@@ -31,6 +32,7 @@ exports.invitarEmpleado = invitarEmpleado;
 exports.cambiarEstadoEmpleado = cambiarEstadoEmpleado;
 exports.cambiarRolEmpleado = cambiarRolEmpleado;
 exports.renombrarEmpleado = renombrarEmpleado;
+exports.actualizarDatosEmpleado = actualizarDatosEmpleado;
 exports.reenviarInvitacion = reenviarInvitacion;
 exports.eliminarEmpleado = eliminarEmpleado;
 exports.confirmarCambioPassword = confirmarCambioPassword;
