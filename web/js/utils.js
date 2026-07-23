@@ -79,6 +79,47 @@ export function hoyStr(d = new Date()) {
   return `${y}-${m}-${day}`;
 }
 
+// "Hoy" en huso horario de Colombia (no el del navegador de quien mire el
+// panel) — mismo criterio que obtenerFilasSemaforo() en Copropiedad
+// Saludable, para que vencido/próximo a vencer no dependa de dónde esté
+// viajando quien lo consulte.
+export function hoyBogotaStr() {
+  const partes = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Bogota", year: "numeric", month: "2-digit", day: "2-digit"
+  }).formatToParts(new Date());
+  const obj = {};
+  partes.forEach((p) => { obj[p.type] = p.value; });
+  return `${obj.year}-${obj.month}-${obj.day}`;
+}
+
+// Áreas de ubicación organizacional de un empleado (mismos 4 grupos del
+// menú lateral + Administrativo y Gerencia) — compartido entre el
+// formulario/tabla de Empleados y el panel de Inicio (gráfica "Empleados
+// por área"), para no duplicar el mapa en dos archivos.
+export const AREAS = {
+  experiencia: "Experiencia",
+  sgi: "SGI-HSEQ",
+  interventoria: "Interventoría",
+  talento: "Talento Humano",
+  administrativo: "Administrativo y Gerencia"
+};
+
+/**
+ * Días que faltan para que se repita el mes/día de `fechaStr` (YYYY-MM-DD),
+ * contando desde `hoyBogotaStr()` — si ya pasó este año, calcula contra el
+ * próximo. Se usa igual para cumpleaños (fechaNacimiento) y aniversarios
+ * laborales (fechaIngreso): mismo cálculo, dos campos distintos. Devuelve
+ * null si `fechaStr` no tiene formato válido.
+ */
+export function diasHastaProximaFechaAnual(fechaStr) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(fechaStr || "")) return null;
+  const hoy = new Date(`${hoyBogotaStr()}T00:00:00`);
+  const [, mes, dia] = fechaStr.split("-").map(Number);
+  let proxima = new Date(hoy.getFullYear(), mes - 1, dia);
+  if (proxima < hoy) proxima = new Date(hoy.getFullYear() + 1, mes - 1, dia);
+  return Math.round((proxima - hoy) / 86400000);
+}
+
 export function poblarSelectAnios(selectEl, anioSeleccionado) {
   const anioActual = new Date().getFullYear();
   const anioMin = 2024;
@@ -193,7 +234,7 @@ export function wireLogoutButton(selector = "#logoutBtn") {
  * página, junto con requireAuth/wireLogoutButton de siempre.
  */
 export function setActiveNav() {
-  const current = window.location.pathname.split("/").pop() || "candidatos.html";
+  const current = window.location.pathname.split("/").pop() || "inicio.html";
   document.querySelectorAll(".sidebar nav a").forEach((a) => {
     if (a.getAttribute("href") === current) {
       a.classList.add("active");

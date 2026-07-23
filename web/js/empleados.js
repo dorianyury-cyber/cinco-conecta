@@ -1,15 +1,8 @@
 import { collection, onSnapshot } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import { httpsCallable } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-functions.js";
-import { db, functions, requireAuth, wireLogoutButton, setActiveNav, showAlert, clearAlert, friendlyError } from "./utils.js";
+import { db, functions, requireAuth, wireLogoutButton, setActiveNav, showAlert, clearAlert, friendlyError, AREAS } from "./utils.js";
 import { ExcelJS, descargarWorkbook, estilizarEncabezado, ajustarAnchoColumnas, leerWorkbook, mapaEncabezados, valorCelda, filasConDatos } from "./excel.js";
 
-const AREAS = {
-  experiencia: "Experiencia",
-  sgi: "SGI-HSEQ",
-  interventoria: "Interventoría",
-  talento: "Talento Humano",
-  administrativo: "Administrativo y Gerencia"
-};
 function esperar(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }

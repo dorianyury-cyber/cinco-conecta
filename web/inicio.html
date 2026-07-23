@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Cinco Conecta — Incidentes</title>
+<title>Cinco Conecta — Inicio</title>
 <link rel="icon" href="assets/img/favicon.png">
 <link rel="stylesheet" href="assets/css/styles.css">
 </head>
@@ -75,57 +75,71 @@
 
     <main class="main">
       <header>
-        <h1>⚠️ Incidentes y casi-accidentes</h1>
+        <h1>🏠 Inicio</h1>
       </header>
 
-      <div class="card">
-        <h2>Reportar</h2>
-        <form id="incidenteForm">
-          <label for="tipo">Tipo</label>
-          <select id="tipo">
-            <option value="incidente">Incidente</option>
-            <option value="casi_accidente">Casi-accidente</option>
-          </select>
-
-          <label for="titulo">Título</label>
-          <input type="text" id="titulo" required maxlength="150">
-
-          <label for="lugar">Lugar</label>
-          <input type="text" id="lugar" required maxlength="150">
-
-          <label for="fecha">Fecha</label>
-          <input type="date" id="fecha" required>
-
-          <label for="gravedad">Gravedad</label>
-          <select id="gravedad">
-            <option value="leve">Leve</option>
-            <option value="moderada">Moderada</option>
-            <option value="grave">Grave</option>
-          </select>
-
-          <label for="descripcion">Descripción</label>
-          <textarea id="descripcion" rows="3" required maxlength="2000"></textarea>
-
-          <label for="foto">Foto (opcional, JPG/PNG/WEBP, máx. 5 MB)</label>
-          <input type="file" id="foto" accept=".jpg,.jpeg,.png,.webp">
-
-          <div class="alert" id="alertBox"></div>
-          <button type="submit" class="btn" id="reportarBtn">Reportar</button>
-        </form>
+      <div class="grid">
+        <div class="stat-tile icon-tile"><div class="icon">👥</div><div class="text"><div class="value" id="statEmpleados">-</div><div class="label">Empleados activos</div></div></div>
+        <div class="stat-tile icon-tile"><div class="icon">📋</div><div class="text"><div class="value" id="statVacantes">-</div><div class="label">Vacantes abiertas</div></div></div>
+        <div class="stat-tile icon-tile"><div class="icon">⚠️</div><div class="text"><div class="value" id="statIncidentes">-</div><div class="label">Incidentes abiertos</div></div></div>
+        <div class="stat-tile icon-tile"><div class="icon">📝</div><div class="text"><div class="value" id="statInformes">-</div><div class="label">Informes generados</div></div></div>
       </div>
 
       <div class="card">
-        <div class="toolbar">
-          <h2 class="m-0">Listado</h2>
-          <button class="btn secondary btn-auto" id="generarInformeBtn">📄 Generar informe PDF</button>
+        <h2>🚦 Estado general</h2>
+        <p class="text-muted" style="font-size:12.5px;margin-top:-8px;">Lo que necesita tu atención hoy, de un vistazo.</p>
+        <div id="semaforoLista" style="display:flex;flex-direction:column;gap:10px;"></div>
+      </div>
+
+      <div class="inicio-grid">
+        <div class="card">
+          <h2>📊 Estado general</h2>
+          <div id="graficoGeneral" class="bar-chart"></div>
         </div>
-        <div id="listaIncidentes"><p class="text-muted text-center">Cargando...</p></div>
+
+        <div class="card">
+          <h2>🧑‍💼 Empleados por área</h2>
+          <div id="graficoAreas" class="bar-chart"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>📝 Informes de Interventoría</h2>
+        <p class="text-muted" style="font-size:12.5px;margin-top:-8px;">Últimos informes generados, libres o desde plantilla.</p>
+        <table class="tabla-fija">
+          <colgroup>
+            <col style="width:18%">
+            <col style="width:32%">
+            <col style="width:30%">
+            <col style="width:20%">
+          </colgroup>
+          <thead>
+            <tr>
+              <th>Código</th>
+              <th>Nombre</th>
+              <th>Cliente</th>
+              <th>Fecha</th>
+            </tr>
+          </thead>
+          <tbody id="tablaInformes">
+            <tr><td colspan="4" class="text-muted text-center">Cargando...</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="card">
+        <h2 style="margin-top:0;font-size:16px;">Accesos rápidos</h2>
+        <div class="toolbar">
+          <a class="btn secondary btn-auto" href="empleados.html">Ir a Empleados</a>
+          <a class="btn secondary btn-auto" href="vacantes-admin.html">Ir a Vacantes</a>
+          <a class="btn secondary btn-auto" href="incidentes.html">Ir a Incidentes</a>
+          <a class="btn secondary btn-auto" href="auditorias.html">Ir a Auditorías</a>
+          <a class="btn secondary btn-auto" href="informes-libres.html">Ir a Informes Libres</a>
+        </div>
       </div>
     </main>
   </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
-  <script type="module" src="js/incidentes.js"></script>
+  <script type="module" src="js/inicio.js"></script>
 </body>
 </html>
