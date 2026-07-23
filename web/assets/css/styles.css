@@ -355,6 +355,41 @@ input:focus, select:focus, textarea:focus {
 .sidebar .spacer { flex: 1; }
 .sidebar .user-box { border-top: 1px solid var(--border); padding: 14px 4px 4px; font-size: 12px; color: var(--text-muted); margin-top: 4px; }
 
+/* ---- Menú lateral agrupado en acordeón (Experiencia / SGI-HSEQ /
+   Interventoría / Talento Humano) — reemplaza la lista plana de 11+
+   enlaces; cada grupo se abre/cierra con un clic y el que contiene la
+   página activa se abre solo (ver setActiveNav en utils.js). ---- */
+.nav-group { margin-bottom: 2px; }
+.nav-group-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 10px 14px;
+  border: none;
+  background: none;
+  border-radius: 10px;
+  color: var(--text-muted);
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  cursor: pointer;
+}
+.nav-group-toggle:hover { background: var(--sidebar-hover); color: var(--text); }
+.nav-group-chevron { font-size: 11px; opacity: 0.55; transition: transform 0.2s ease; }
+.nav-group.open .nav-group-chevron { transform: rotate(180deg); }
+.nav-group-items {
+  display: none;
+  flex-direction: column;
+  padding-left: 8px;
+  margin: 2px 0 6px;
+}
+.nav-group.open .nav-group-items { display: flex; }
+.nav-group-items a { font-size: 13.5px; }
+.nav-group.solo-admin { border-top: 1px solid var(--border); padding-top: 6px; margin-top: 4px; }
+
 .main { flex: 1; padding: 28px 36px; max-width: 1600px; }
 .main header { margin-bottom: 26px; }
 .main h1 { font-size: 24px; font-weight: 800; margin: 0; color: var(--text); }

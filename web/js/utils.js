@@ -125,10 +125,14 @@ function actualizarCajaUsuario(nombre) {
  * Empleados) solo los puede ver el rol "admin" (Talento Humano) — un
  * empleado regular no gestiona contratación ni invita gente. Esto es solo
  * comodidad de interfaz: la seguridad real la dan las Firestore Rules.
+ * El selector es genérico (no solo `a.solo-admin`) porque el grupo
+ * "Talento Humano" completo del menú lateral también lleva esta clase en
+ * su contenedor, para ocultar el grupo entero (botón + ítems) de una vez
+ * en vez de dejar un desplegable vacío.
  */
 function ocultarNavSoloAdmin() {
   const insertar = () => {
-    document.querySelectorAll(".sidebar nav a.solo-admin").forEach((a) => a.classList.add("hidden"));
+    document.querySelectorAll(".sidebar .solo-admin").forEach((el) => el.classList.add("hidden"));
   };
   if (document.body) insertar();
   else document.addEventListener("DOMContentLoaded", insertar);
@@ -178,10 +182,33 @@ export function wireLogoutButton(selector = "#logoutBtn") {
   if (btn) btn.addEventListener("click", logout);
 }
 
+/**
+ * Marca el enlace activo del menú lateral y activa el comportamiento de
+ * acordeón de sus grupos (Experiencia / SGI-HSEQ / Interventoría /
+ * Talento Humano, en vez de una lista plana de 11+ enlaces): el grupo
+ * que contiene la página activa se abre automáticamente, cada grupo se
+ * abre/cierra con un clic en su encabezado, y el estado (abierto/
+ * cerrado) se recuerda en localStorage para que no se cierre solo al
+ * navegar entre páginas del mismo grupo. Se llama una sola vez por
+ * página, junto con requireAuth/wireLogoutButton de siempre.
+ */
 export function setActiveNav() {
   const current = window.location.pathname.split("/").pop() || "candidatos.html";
   document.querySelectorAll(".sidebar nav a").forEach((a) => {
-    if (a.getAttribute("href") === current) a.classList.add("active");
+    if (a.getAttribute("href") === current) {
+      a.classList.add("active");
+      a.closest(".nav-group")?.classList.add("open");
+    }
+  });
+
+  document.querySelectorAll(".nav-group-toggle").forEach((btn) => {
+    const grupo = btn.closest(".nav-group");
+    const id = grupo?.dataset.grupo;
+    if (id && localStorage.getItem(`navGrupoAbierto_${id}`) === "1") grupo.classList.add("open");
+    btn.addEventListener("click", () => {
+      const abierto = grupo.classList.toggle("open");
+      if (id) localStorage.setItem(`navGrupoAbierto_${id}`, abierto ? "1" : "0");
+    });
   });
 }
 
