@@ -242,10 +242,17 @@ export function setActiveNav() {
     }
   });
 
+  // En Inicio (fuera de los 4 grupos) el sidebar siempre arranca con todo
+  // colapsado, sin importar cómo haya quedado en una visita anterior a otra
+  // página — mantiene la pantalla de aterrizaje limpia y obliga a abrir el
+  // grupo que se necesite. En el resto de páginas sí se restaura tal cual
+  // quedó guardado.
+  const restaurarAbiertos = current !== "inicio.html";
+
   document.querySelectorAll(".nav-group-toggle").forEach((btn) => {
     const grupo = btn.closest(".nav-group");
     const id = grupo?.dataset.grupo;
-    if (id && localStorage.getItem(`navGrupoAbierto_${id}`) === "1") grupo.classList.add("open");
+    if (restaurarAbiertos && id && localStorage.getItem(`navGrupoAbierto_${id}`) === "1") grupo.classList.add("open");
     btn.addEventListener("click", () => {
       const abierto = grupo.classList.toggle("open");
       if (id) localStorage.setItem(`navGrupoAbierto_${id}`, abierto ? "1" : "0");
