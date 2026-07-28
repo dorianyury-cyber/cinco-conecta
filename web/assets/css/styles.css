@@ -531,6 +531,38 @@ input:focus, select:focus, textarea:focus {
     inset 0 -2px 6px rgba(0, 0, 0, 0.3);
 }
 
+/* Variante clara/tenue del mismo lenguaje visual: para acciones secundarias
+   de la sesión (Cambiar contraseña, Cerrar sesión) que no deben competir con
+   los botones de creación — mismo relieve 3D pero invertido: fondo claro en
+   degradado ámbar suave y navy/negro como acento (borde + texto), en vez de
+   fondo navy con acento ámbar. */
+.btn.claro {
+  width: auto;
+  color: var(--cinco-navy-dark);
+  position: relative;
+  overflow: hidden;
+  background:
+    repeating-linear-gradient(135deg, rgba(31, 39, 50, 0.05) 0 10px, rgba(31, 39, 50, 0) 10px 20px),
+    linear-gradient(135deg, #fff6e3 0%, #ffe3a8 100%);
+  border: 1px solid rgba(31, 39, 50, 0.14);
+  box-shadow:
+    0 3px 10px rgba(217, 148, 0, 0.16),
+    inset 0 1px 0 rgba(255, 255, 255, 0.7);
+}
+.btn.claro::after {
+  content: "";
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  height: 2px;
+  background: linear-gradient(90deg, var(--cinco-navy), var(--cinco-navy-dark), var(--cinco-navy));
+}
+.btn.claro:hover {
+  transform: translateY(-1px);
+  box-shadow:
+    0 6px 14px rgba(217, 148, 0, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.7);
+}
+
 .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 20px; }
 
 .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0 16px; }
