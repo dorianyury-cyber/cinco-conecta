@@ -258,37 +258,23 @@ export function wireLogoutButton(selector = "#logoutBtn") {
 /**
  * Marca el enlace activo del menú lateral y activa el comportamiento de
  * acordeón de sus grupos (Experiencia / SGI-HSEQ / Interventoría /
- * Talento Humano, en vez de una lista plana de 11+ enlaces): el grupo
- * que contiene la página activa se abre automáticamente, cada grupo se
- * abre/cierra con un clic en su encabezado, y el estado (abierto/
- * cerrado) se recuerda en localStorage para que no se cierre solo al
- * navegar entre páginas del mismo grupo. Se llama una sola vez por
- * página, junto con requireAuth/wireLogoutButton de siempre.
+ * Talento Humano, en vez de una lista plana de 11+ enlaces): todos los
+ * grupos arrancan colapsados en cada carga de página (sin importar cómo
+ * haya quedado uno abierto en una visita anterior) y cada uno se abre/
+ * cierra solo con un clic en su encabezado, de a uno. Se llama una sola
+ * vez por página, junto con requireAuth/wireLogoutButton de siempre.
  */
 export function setActiveNav() {
   const current = window.location.pathname.split("/").pop() || "inicio.html";
   document.querySelectorAll(".sidebar nav a").forEach((a) => {
     if (a.getAttribute("href") === current) {
       a.classList.add("active");
-      a.closest(".nav-group")?.classList.add("open");
     }
   });
 
-  // En Inicio (fuera de los 4 grupos) el sidebar siempre arranca con todo
-  // colapsado, sin importar cómo haya quedado en una visita anterior a otra
-  // página — mantiene la pantalla de aterrizaje limpia y obliga a abrir el
-  // grupo que se necesite. En el resto de páginas sí se restaura tal cual
-  // quedó guardado.
-  const restaurarAbiertos = current !== "inicio.html";
-
   document.querySelectorAll(".nav-group-toggle").forEach((btn) => {
     const grupo = btn.closest(".nav-group");
-    const id = grupo?.dataset.grupo;
-    if (restaurarAbiertos && id && localStorage.getItem(`navGrupoAbierto_${id}`) === "1") grupo.classList.add("open");
-    btn.addEventListener("click", () => {
-      const abierto = grupo.classList.toggle("open");
-      if (id) localStorage.setItem(`navGrupoAbierto_${id}`, abierto ? "1" : "0");
-    });
+    btn.addEventListener("click", () => grupo.classList.toggle("open"));
   });
 }
 
