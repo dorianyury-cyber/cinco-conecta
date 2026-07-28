@@ -376,26 +376,48 @@ input:focus, select:focus, textarea:focus {
    Interventoría / Talento Humano) — reemplaza la lista plana de 11+
    enlaces; cada grupo se abre/cierra con un clic y el que contiene la
    página activa se abre solo (ver setActiveNav en utils.js). ---- */
-.nav-group { margin-bottom: 2px; }
+.nav-group { margin-bottom: 8px; }
 .nav-group-toggle {
   display: flex;
   align-items: center;
   justify-content: space-between;
   width: 100%;
-  padding: 10px 14px;
+  padding: 12px 14px;
   border: none;
-  background: none;
   border-radius: 10px;
-  color: var(--text-muted);
+  color: #fff;
   font-family: inherit;
   font-size: 12.5px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.03em;
   cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  background:
+    repeating-linear-gradient(135deg, rgba(254, 178, 9, 0.14) 0 8px, rgba(254, 178, 9, 0) 8px 16px),
+    linear-gradient(135deg, var(--cinco-navy) 0%, var(--cinco-navy-dark) 100%);
+  box-shadow:
+    0 6px 14px rgba(18, 22, 29, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.10),
+    inset 0 -2px 5px rgba(0, 0, 0, 0.32);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
-.nav-group-toggle:hover { background: var(--sidebar-hover); color: var(--text); }
-.nav-group-chevron { font-size: 11px; opacity: 0.55; transition: transform 0.2s ease; }
+.nav-group-toggle::after {
+  content: "";
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  height: 2px;
+  background: linear-gradient(90deg, var(--cinco-amber-dark), var(--cinco-amber), var(--cinco-amber-dark));
+}
+.nav-group-toggle:hover {
+  transform: translateY(-1px);
+  box-shadow:
+    0 9px 18px rgba(18, 22, 29, 0.34),
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    inset 0 -2px 5px rgba(0, 0, 0, 0.32);
+}
+.nav-group-chevron { font-size: 11px; color: var(--cinco-amber); transition: transform 0.2s ease; }
 .nav-group.open .nav-group-chevron { transform: rotate(180deg); }
 .nav-group-items {
   display: none;
