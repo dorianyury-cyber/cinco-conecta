@@ -1,12 +1,12 @@
 import { collection, onSnapshot, addDoc, updateDoc, doc, serverTimestamp, query, orderBy } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
-import { db, requireAuth, wireLogoutButton, setActiveNav, showAlert, clearAlert, friendlyError, formatDate, formatDateCorta } from "./utils.js";
+import { db, requireAuth, wireLogoutButton, setActiveNav, showAlert, clearAlert, friendlyError, formatDate, formatDateCorta, tienePermiso } from "./utils.js";
 import { crearDocumentoPDF, agregarEncabezado, agregarTabla, agregarPiePagina, descargarPDF } from "./pdf.js";
 
 const { perfil } = await requireAuth();
 wireLogoutButton();
 setActiveNav();
 
-const esAdmin = perfil.rol === "admin";
+const esAdmin = tienePermiso(perfil, "auditorias");
 if (esAdmin) document.getElementById("crearCard").classList.remove("hidden");
 
 const NORMA_TEXTO = { "9001": "ISO 9001", "14001": "ISO 14001", "45001": "ISO 45001", multiple: "Varias normas" };

@@ -397,7 +397,7 @@ input:focus, select:focus, textarea:focus {
 }
 .nav-group.open .nav-group-items { display: flex; }
 .nav-group-items a { font-size: 13.5px; }
-.nav-group.solo-admin { border-top: 1px solid var(--border); padding-top: 6px; margin-top: 4px; }
+.nav-group[data-grupo="talento"] { border-top: 1px solid var(--border); padding-top: 6px; margin-top: 4px; }
 
 .main { flex: 1; padding: 28px 36px; max-width: 1600px; }
 .main header { margin-bottom: 26px; }

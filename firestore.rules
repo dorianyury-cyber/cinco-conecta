@@ -27,6 +27,14 @@ service cloud.firestore {
       return isEmpleado() && staffDoc().rol == 'admin';
     }
 
+    // Permisos finos otorgables a un empleado sin hacerlo admin completo
+    // (ver staff.permisos, gestionado desde actualizarPermisosEmpleado). Un
+    // admin siempre tiene los 9, sin necesitar el arreglo poblado.
+    function tienePermiso(clave) {
+      let perfil = staffDoc();
+      return isAdmin() || (('permisos' in perfil) && clave in perfil.permisos);
+    }
+
     match /staff/{uid} {
       allow get: if isSignedIn() && request.auth.uid == uid;
       allow list: if isEmpleado();
@@ -35,11 +43,11 @@ service cloud.firestore {
 
     match /vacantes/{id} {
       allow read: if true;
-      allow write: if isAdmin();
+      allow write: if tienePermiso('vacantes');
     }
 
     match /candidatos/{id} {
-      allow read, write: if isAdmin();
+      allow read, write: if tienePermiso('candidatos');
     }
 
     match /reconocimientos/{id} {
@@ -54,7 +62,7 @@ service cloud.firestore {
 
     match /encuestas/{id} {
       allow read: if isEmpleado();
-      allow write: if isAdmin();
+      allow write: if tienePermiso('encuestas');
 
       // Cada quien puede ver si YA votó esta encuesta (para no mostrarle de
       // nuevo el formulario), pero nunca puede escribir aquí directo — solo
@@ -68,7 +76,7 @@ service cloud.firestore {
 
     match /comunicados/{id} {
       allow read: if isEmpleado();
-      allow write: if isAdmin();
+      allow write: if tienePermiso('comunicados');
     }
 
     // Las respuestas de encuesta deben quedar anónimas (sin uid) y no se
@@ -77,7 +85,7 @@ service cloud.firestore {
     // responderEncuesta. El admin sí puede LEERLAS (para ver resultados y
     // promedios), pero como nunca tienen uid, siguen siendo anónimas.
     match /encuestaRespuestas/{id} {
-      allow read: if isAdmin();
+      allow read: if tienePermiso('encuestas');
       allow write: if false;
     }
 
@@ -90,7 +98,7 @@ service cloud.firestore {
     match /incidentes/{id} {
       allow read: if isEmpleado();
       allow create: if false;
-      allow update, delete: if isAdmin();
+      allow update, delete: if tienePermiso('incidentes');
     }
 
     // El admin crea/borra acciones correctivas; el responsable asignado
@@ -98,8 +106,8 @@ service cloud.firestore {
     // reasignarla ni tocar el resto de campos.
     match /accionesCorrectivas/{id} {
       allow read: if isEmpleado();
-      allow create, delete: if isAdmin();
-      allow update: if isAdmin()
+      allow create, delete: if tienePermiso('accionesCorrectivas');
+      allow update: if tienePermiso('accionesCorrectivas')
         || (isEmpleado() && resource.data.responsableUid == request.auth.uid
             && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['estado', 'evidencia']));
     }
@@ -113,7 +121,7 @@ service cloud.firestore {
 
     match /auditorias/{id} {
       allow read: if isEmpleado();
-      allow write: if isAdmin();
+      allow write: if tienePermiso('auditorias');
     }
 
     // ---- Informes de interventoría ----
@@ -147,14 +155,14 @@ service cloud.firestore {
       allow create: if isEmpleado()
         && request.resource.data.autorUid == request.auth.uid
         && request.resource.data.estado == 'borrador';
-      allow update: if isAdmin()
+      allow update: if tienePermiso('informes')
         || (isEmpleado()
             && resource.data.autorUid == request.auth.uid
             && resource.data.estado == 'borrador'
             && request.resource.data.autorUid == resource.data.autorUid
             && request.resource.data.creadoEn == resource.data.creadoEn
             && request.resource.data.codigo == resource.data.codigo);
-      allow delete: if isAdmin()
+      allow delete: if tienePermiso('informes')
         || (isEmpleado() && resource.data.autorUid == request.auth.uid && resource.data.estado == 'borrador');
     }
 

@@ -1,12 +1,12 @@
 import { collection, onSnapshot, addDoc, updateDoc, doc, serverTimestamp, Timestamp, query, orderBy } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
-import { db, requireAuth, wireLogoutButton, setActiveNav, showAlert, clearAlert, friendlyError, formatDate } from "./utils.js";
+import { db, requireAuth, wireLogoutButton, setActiveNav, showAlert, clearAlert, friendlyError, formatDate, tienePermiso } from "./utils.js";
 import { ExcelJS, descargarWorkbook, estilizarEncabezado } from "./excel.js";
 
 const { user, perfil } = await requireAuth();
 wireLogoutButton();
 setActiveNav();
 
-const esAdmin = perfil.rol === "admin";
+const esAdmin = tienePermiso(perfil, "accionesCorrectivas");
 const params = new URLSearchParams(window.location.search);
 const origen = params.get("origenId")
   ? { tipo: params.get("origenTipo") || "manual", refId: params.get("origenId") }

@@ -21,10 +21,10 @@ async function requireEmpleado(request) {
   return data;
 }
 
-async function requireAdmin(request) {
+async function requirePermiso(request, clave) {
   const perfil = await requireEmpleado(request);
-  if (perfil.rol !== "admin") {
-    throw new HttpsError("permission-denied", "Solo un administrador puede hacer esto.");
+  if (perfil.rol !== "admin" && !(perfil.permisos || []).includes(clave)) {
+    throw new HttpsError("permission-denied", "No tienes permiso para hacer esto.");
   }
   return perfil;
 }
@@ -65,7 +65,7 @@ function prettificarEtiqueta(clave) {
 // <w:t> internos (autocorrección) y porque los nombres de campo en español
 // llevan tildes/ñ que una regex tipo \w+ no reconocería.
 const subirPlantilla = onCall({ enforceAppCheck: true }, async (request) => {
-  const perfil = await requireAdmin(request);
+  const perfil = await requirePermiso(request, "informes");
   const data = request.data || {};
 
   const nombre = String(data.nombre || "").trim().slice(0, 150);
@@ -123,7 +123,7 @@ const subirPlantilla = onCall({ enforceAppCheck: true }, async (request) => {
 // falsos-positivos (texto de la plantilla que por casualidad tenía {algo})
 // sin tener que volver a subir el archivo.
 const actualizarCamposPlantilla = onCall({ enforceAppCheck: true }, async (request) => {
-  await requireAdmin(request);
+  await requirePermiso(request, "informes");
   const data = request.data || {};
   const plantillaId = String(data.plantillaId || "").trim();
   const campos = Array.isArray(data.campos) ? data.campos : null;
@@ -151,7 +151,7 @@ const actualizarCamposPlantilla = onCall({ enforceAppCheck: true }, async (reque
 });
 
 const eliminarPlantilla = onCall({ enforceAppCheck: true }, async (request) => {
-  await requireAdmin(request);
+  await requirePermiso(request, "informes");
   const plantillaId = String(request.data?.plantillaId || "").trim();
   if (!plantillaId) {
     throw new HttpsError("invalid-argument", "Falta la plantilla a eliminar.");

@@ -21,10 +21,10 @@ async function requireEmpleado(request) {
   return data;
 }
 
-async function requireAdmin(request) {
+async function requirePermiso(request, clave) {
   const perfil = await requireEmpleado(request);
-  if (perfil.rol !== "admin") {
-    throw new HttpsError("permission-denied", "Solo un administrador puede hacer esto.");
+  if (perfil.rol !== "admin" && !(perfil.permisos || []).includes(clave)) {
+    throw new HttpsError("permission-denied", "No tienes permiso para hacer esto.");
   }
   return perfil;
 }
@@ -83,11 +83,12 @@ const reportarIncidente = onCall({ enforceAppCheck: true }, async (request) => {
   return { ok: true };
 });
 
-// Solo el admin sube documentos del sistema de gestión (procedimientos,
-// instructivos, formatos) — mismo motivo: la subida pasa por el Admin SDK
+// Solo admin o quien tenga el permiso "documentos" sube documentos del
+// sistema de gestión (procedimientos, instructivos, formatos) — mismo
+// motivo: la subida pasa por el Admin SDK
 // para no tener que abrir Storage a escritura de cliente.
 const subirDocumento = onCall({ enforceAppCheck: true }, async (request) => {
-  const perfil = await requireAdmin(request);
+  const perfil = await requirePermiso(request, "documentos");
   const data = request.data || {};
 
   const titulo = String(data.titulo || "").trim().slice(0, 150);

@@ -8,6 +8,7 @@ const {
   invitarEmpleado,
   cambiarEstadoEmpleado,
   cambiarRolEmpleado,
+  actualizarPermisosEmpleado,
   renombrarEmpleado,
   actualizarDatosEmpleado,
   reenviarInvitacion,
@@ -31,6 +32,7 @@ exports.obtenerArchivoBase64 = obtenerArchivoBase64;
 exports.invitarEmpleado = invitarEmpleado;
 exports.cambiarEstadoEmpleado = cambiarEstadoEmpleado;
 exports.cambiarRolEmpleado = cambiarRolEmpleado;
+exports.actualizarPermisosEmpleado = actualizarPermisosEmpleado;
 exports.renombrarEmpleado = renombrarEmpleado;
 exports.actualizarDatosEmpleado = actualizarDatosEmpleado;
 exports.reenviarInvitacion = reenviarInvitacion;

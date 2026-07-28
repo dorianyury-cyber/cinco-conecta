@@ -2,13 +2,13 @@ import {
   collection, onSnapshot, addDoc, updateDoc, doc, getDoc, getDocs, serverTimestamp, Timestamp
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import { httpsCallable } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-functions.js";
-import { db, functions, requireAuth, wireLogoutButton, setActiveNav, showAlert, clearAlert, friendlyError, formatDate } from "./utils.js";
+import { db, functions, requireAuth, wireLogoutButton, setActiveNav, showAlert, clearAlert, friendlyError, formatDate, tienePermiso } from "./utils.js";
 
 const { user, perfil } = await requireAuth();
 wireLogoutButton();
 setActiveNav();
 
-const esAdmin = perfil.rol === "admin";
+const esAdmin = tienePermiso(perfil, "encuestas");
 if (esAdmin) document.getElementById("crearEncuestaCard").classList.remove("hidden");
 
 const activaEl = document.getElementById("encuestaActivaContenedor");

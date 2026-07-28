@@ -162,18 +162,49 @@ function actualizarCajaUsuario(nombre) {
 }
 
 /**
- * Los enlaces del menú marcados con esta clase (Vacantes/Candidatos/
- * Empleados) solo los puede ver el rol "admin" (Talento Humano) — un
- * empleado regular no gestiona contratación ni invita gente. Esto es solo
- * comodidad de interfaz: la seguridad real la dan las Firestore Rules.
- * El selector es genérico (no solo `a.solo-admin`) porque el grupo
- * "Talento Humano" completo del menú lateral también lleva esta clase en
- * su contenedor, para ocultar el grupo entero (botón + ítems) de una vez
- * en vez de dejar un desplegable vacío.
+ * Los elementos marcados con esta clase (ej. el enlace "Empleados") solo
+ * los puede ver el rol "admin" — gestionar empleados/permisos nunca es un
+ * permiso otorgable (evita que alguien se auto-otorgue acceso). Esto es
+ * solo comodidad de interfaz: la seguridad real la dan las Firestore Rules.
  */
 function ocultarNavSoloAdmin() {
   const insertar = () => {
     document.querySelectorAll(".sidebar .solo-admin").forEach((el) => el.classList.add("hidden"));
+  };
+  if (document.body) insertar();
+  else document.addEventListener("DOMContentLoaded", insertar);
+}
+
+/**
+ * `true` si el perfil es admin (acceso total) o si tiene la clave `clave`
+ * en su arreglo `permisos` (otorgado desde el botón "🔐 Permisos" en
+ * Empleados). Compartido entre las Firestore Rules (misma lógica, ver
+ * `tienePermiso()` en firestore.rules) y cada página que antes solo
+ * comprobaba `perfil.rol === "admin"` para mostrar sus acciones de gestión.
+ */
+export function tienePermiso(perfil, clave) {
+  return perfil?.rol === "admin" || (perfil?.permisos || []).includes(clave);
+}
+
+/**
+ * Los enlaces/tarjetas del menú marcados con `data-permiso="clave"` (ej.
+ * Vacantes, Candidatos dentro de "Talento Humano") se muestran si el
+ * perfil tiene esa clave — a diferencia de `.solo-admin`, aquí un empleado
+ * regular SÍ puede verlos si se le otorgó el permiso puntual. Si tras
+ * aplicar esto un `.nav-group` se queda sin ningún enlace visible, se
+ * oculta el grupo completo para no dejar un desplegable vacío.
+ */
+function aplicarPermisosNav(perfil) {
+  const insertar = () => {
+    document.querySelectorAll(".sidebar [data-permiso]").forEach((el) => {
+      el.classList.toggle("hidden", !tienePermiso(perfil, el.dataset.permiso));
+    });
+    document.querySelectorAll(".sidebar .nav-group").forEach((grupo) => {
+      const items = grupo.querySelector(".nav-group-items");
+      if (!items) return;
+      const hayVisibles = Array.from(items.children).some((el) => !el.classList.contains("hidden"));
+      grupo.classList.toggle("hidden", !hayVisibles);
+    });
   };
   if (document.body) insertar();
   else document.addEventListener("DOMContentLoaded", insertar);
@@ -208,6 +239,7 @@ export function requireAuth() {
       }
       actualizarCajaUsuario(perfil.nombre || user.email);
       if (perfil.rol !== "admin") ocultarNavSoloAdmin();
+      aplicarPermisosNav(perfil);
       resolve({ user, perfil });
     });
   });

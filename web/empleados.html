@@ -53,15 +53,15 @@
           </div>
         </div>
 
-        <div class="nav-group solo-admin" data-grupo="talento">
+        <div class="nav-group" data-grupo="talento">
           <button type="button" class="nav-group-toggle">
             <span>👥 Talento Humano</span>
             <span class="nav-group-chevron">▾</span>
           </button>
           <div class="nav-group-items">
-            <a href="candidatos.html">👥 Candidatos</a>
-            <a href="vacantes-admin.html">📋 Vacantes</a>
-            <a href="empleados.html">🧑‍💼 Empleados</a>
+            <a href="candidatos.html" data-permiso="candidatos">👥 Candidatos</a>
+            <a href="vacantes-admin.html" data-permiso="vacantes">📋 Vacantes</a>
+            <a href="empleados.html" class="solo-admin">🧑‍💼 Empleados</a>
           </div>
         </div>
       </nav>
@@ -269,6 +269,32 @@
         <div class="toolbar">
           <button type="submit" class="btn btn-auto" id="editarGuardarBtn">Guardar</button>
           <button type="button" class="btn secondary btn-auto" id="editarCancelarBtn">Cancelar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="modalPermisosBackdrop">
+    <div class="modal modal-wide">
+      <h2>Permisos</h2>
+      <form id="permisosForm">
+        <input type="hidden" id="permisosUid">
+        <p class="text-muted text-sm">Además de sus módulos habituales, este empleado también podrá:</p>
+        <div class="form-grid">
+          <label class="checkbox-row"><input type="checkbox" value="vacantes" name="permiso"> Publicar y editar vacantes</label>
+          <label class="checkbox-row"><input type="checkbox" value="candidatos" name="permiso"> Gestionar candidatos</label>
+          <label class="checkbox-row"><input type="checkbox" value="comunicados" name="permiso"> Publicar comunicados</label>
+          <label class="checkbox-row"><input type="checkbox" value="encuestas" name="permiso"> Crear encuestas</label>
+          <label class="checkbox-row"><input type="checkbox" value="incidentes" name="permiso"> Cerrar/editar incidentes</label>
+          <label class="checkbox-row"><input type="checkbox" value="accionesCorrectivas" name="permiso"> Crear/eliminar acciones correctivas</label>
+          <label class="checkbox-row"><input type="checkbox" value="documentos" name="permiso"> Subir documentos del SGI</label>
+          <label class="checkbox-row"><input type="checkbox" value="auditorias" name="permiso"> Programar auditorías</label>
+          <label class="checkbox-row"><input type="checkbox" value="informes" name="permiso"> Administrar plantillas de informes</label>
+        </div>
+        <div class="alert" id="permisosAlertBox"></div>
+        <div class="toolbar">
+          <button type="submit" class="btn btn-auto" id="permisosGuardarBtn">Guardar</button>
+          <button type="button" class="btn secondary btn-auto" id="permisosCancelarBtn">Cancelar</button>
         </div>
       </form>
     </div>

@@ -1,13 +1,13 @@
 import { collection, onSnapshot, updateDoc, doc, query, orderBy } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import { httpsCallable } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-functions.js";
-import { db, functions, requireAuth, wireLogoutButton, setActiveNav, showAlert, clearAlert, friendlyError, formatDate, formatDateCorta } from "./utils.js";
+import { db, functions, requireAuth, wireLogoutButton, setActiveNav, showAlert, clearAlert, friendlyError, formatDate, formatDateCorta, tienePermiso } from "./utils.js";
 import { crearDocumentoPDF, agregarEncabezado, agregarTabla, agregarPiePagina, descargarPDF } from "./pdf.js";
 
 const { perfil } = await requireAuth();
 wireLogoutButton();
 setActiveNav();
 
-const esAdmin = perfil.rol === "admin";
+const esAdmin = tienePermiso(perfil, "incidentes");
 const form = document.getElementById("incidenteForm");
 const alertBox = document.getElementById("alertBox");
 const reportarBtn = document.getElementById("reportarBtn");

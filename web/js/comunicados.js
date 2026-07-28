@@ -1,11 +1,11 @@
 import { collection, onSnapshot, addDoc, query, orderBy, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
-import { db, requireAuth, wireLogoutButton, setActiveNav, showAlert, clearAlert, friendlyError, formatDate } from "./utils.js";
+import { db, requireAuth, wireLogoutButton, setActiveNav, showAlert, clearAlert, friendlyError, formatDate, tienePermiso } from "./utils.js";
 
 const { perfil } = await requireAuth();
 wireLogoutButton();
 setActiveNav();
 
-const esAdmin = perfil.rol === "admin";
+const esAdmin = tienePermiso(perfil, "comunicados");
 if (esAdmin) document.getElementById("publicarCard").classList.remove("hidden");
 
 const feed = document.getElementById("feedComunicados");

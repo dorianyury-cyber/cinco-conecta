@@ -5,7 +5,7 @@ import {
 import { httpsCallable } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-functions.js";
 import {
   db, functions, requireAuth, wireLogoutButton, setActiveNav, showAlert, clearAlert,
-  friendlyError, formatDate, hoyStr, obtenerArchivoComoDataUrl
+  friendlyError, formatDate, hoyStr, obtenerArchivoComoDataUrl, tienePermiso
 } from "./utils.js";
 import {
   crearDocumentoPDF, agregarPortadaInforme, agregarBloqueTitulo, agregarBloqueParrafo,
@@ -23,7 +23,7 @@ wireLogoutButton();
 setActiveNav();
 
 const uid = user.uid;
-const esAdmin = perfil.rol === "admin";
+const esAdmin = tienePermiso(perfil, "informes");
 
 // Referencias APA que siempre se incluyen por defecto en un informe nuevo
 // (normas del Sistema de Gestión Integrado de Cinco S.A.S. + RETIE) — el

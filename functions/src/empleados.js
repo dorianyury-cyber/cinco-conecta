@@ -8,6 +8,10 @@ function generarPasswordTemporal() {
 }
 
 const AREAS_VALIDAS = ["experiencia", "sgi", "interventoria", "talento", "administrativo"];
+const PERMISOS_VALIDOS = [
+  "vacantes", "candidatos", "comunicados", "encuestas", "incidentes",
+  "accionesCorrectivas", "documentos", "auditorias", "informes"
+];
 const TIPOS_VINCULACION_VALIDOS = ["indefinido", "fijo", "prestacion_servicios", "aprendiz"];
 const FECHA_REGEX = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -96,6 +100,7 @@ const invitarEmpleado = onCall({ enforceAppCheck: true }, async (request) => {
     correo,
     estado: "activo",
     rol: "empleado",
+    permisos: [],
     debeCambiarPassword: true,
     ...datosPerfil,
     creadoEn: admin.firestore.FieldValue.serverTimestamp()
@@ -150,6 +155,32 @@ const cambiarRolEmpleado = onCall({ enforceAppCheck: true }, async (request) => 
     throw new HttpsError("not-found", "Ese empleado ya no existe.");
   }
   await ref.update({ rol });
+  return { ok: true };
+});
+
+// Otorga/revoca permisos finos (vacantes, candidatos, comunicados,
+// encuestas, incidentes, accionesCorrectivas, documentos, auditorias,
+// informes) sin necesidad de hacer admin completo a un empleado. La gestión
+// de empleados en sí (esta función incluida) nunca es un permiso otorgable
+// — solo un admin puede tocarla, para que nadie pueda auto-otorgarse acceso.
+const actualizarPermisosEmpleado = onCall({ enforceAppCheck: true }, async (request) => {
+  await requireAdmin(request);
+  const uid = String(request.data?.uid || "").trim();
+  if (!uid) {
+    throw new HttpsError("invalid-argument", "Falta el empleado.");
+  }
+  if (uid === request.auth.uid) {
+    throw new HttpsError("invalid-argument", "No puedes cambiar tus propios permisos — pídeselo a otro administrador.");
+  }
+  const permisos = Array.isArray(request.data?.permisos)
+    ? [...new Set(request.data.permisos.filter((p) => PERMISOS_VALIDOS.includes(p)))]
+    : [];
+  const ref = admin.firestore().collection("staff").doc(uid);
+  const snap = await ref.get();
+  if (!snap.exists) {
+    throw new HttpsError("not-found", "Ese empleado ya no existe.");
+  }
+  await ref.update({ permisos });
   return { ok: true };
 });
 
@@ -268,6 +299,7 @@ module.exports = {
   invitarEmpleado,
   cambiarEstadoEmpleado,
   cambiarRolEmpleado,
+  actualizarPermisosEmpleado,
   renombrarEmpleado,
   actualizarDatosEmpleado,
   reenviarInvitacion,

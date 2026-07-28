@@ -1,12 +1,12 @@
 import { collection, onSnapshot, query, orderBy } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import { httpsCallable } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-functions.js";
-import { db, functions, requireAuth, wireLogoutButton, setActiveNav, showAlert, clearAlert, friendlyError, formatDate, obtenerArchivoComoDataUrl } from "./utils.js";
+import { db, functions, requireAuth, wireLogoutButton, setActiveNav, showAlert, clearAlert, friendlyError, formatDate, obtenerArchivoComoDataUrl, tienePermiso } from "./utils.js";
 
 const { perfil } = await requireAuth();
 wireLogoutButton();
 setActiveNav();
 
-const esAdmin = perfil.rol === "admin";
+const esAdmin = tienePermiso(perfil, "informes");
 if (esAdmin) document.getElementById("subirCard").classList.remove("hidden");
 
 function leerArchivoComoBase64(file) {
