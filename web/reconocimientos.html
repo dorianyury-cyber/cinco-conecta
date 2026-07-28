@@ -79,7 +79,12 @@
       </header>
 
       <div class="card">
-        <h2>Reconoce a un compañero</h2>
+        <button type="button" class="form-trigger">
+          <span class="form-trigger-icon">🙌</span>
+          <span class="form-trigger-label">Reconoce a un compañero</span>
+          <span class="form-trigger-chevron">▾</span>
+        </button>
+        <div class="collapsible-form"><div class="collapsible-form-inner">
         <form id="reconocerForm">
           <label for="paraUid">¿A quién quieres reconocer?</label>
           <select id="paraUid" required></select>
@@ -93,6 +98,7 @@
           <div class="alert" id="alertBox"></div>
           <button type="submit" class="btn" id="enviarBtn">Reconocer</button>
         </form>
+        </div></div>
       </div>
 
       <div id="muroReconocimientos"><p class="text-muted text-center">Cargando...</p></div>

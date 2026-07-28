@@ -477,6 +477,38 @@ input:focus, select:focus, textarea:focus {
 .card.abierto .collapsible-form { grid-template-rows: 1fr; }
 .card.abierto .collapsible-form-inner { margin-top: 18px; }
 
+/* Variante compacta del mismo lenguaje visual de .form-trigger (degradado
+   navy/ámbar, textura achurada, relieve 3D) para botones "+ Nuevo/a X" que
+   viven en un toolbar en vez de abrir un formulario en línea (ej. "+ Nuevo
+   informe", "+ Nueva vacante" — abren un modal, no una tarjeta colapsable). */
+.btn.brand {
+  width: auto;
+  color: #fff;
+  position: relative;
+  overflow: hidden;
+  background:
+    repeating-linear-gradient(135deg, rgba(254, 178, 9, 0.14) 0 10px, rgba(254, 178, 9, 0) 10px 20px),
+    linear-gradient(135deg, var(--cinco-navy) 0%, var(--cinco-navy-dark) 100%);
+  box-shadow:
+    0 6px 16px rgba(18, 22, 29, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.10),
+    inset 0 -2px 6px rgba(0, 0, 0, 0.3);
+}
+.btn.brand::after {
+  content: "";
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  height: 2px;
+  background: linear-gradient(90deg, var(--cinco-amber-dark), var(--cinco-amber), var(--cinco-amber-dark));
+}
+.btn.brand:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    0 10px 20px rgba(18, 22, 29, 0.36),
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    inset 0 -2px 6px rgba(0, 0, 0, 0.3);
+}
+
 .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 20px; }
 
 .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0 16px; }
