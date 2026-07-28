@@ -90,11 +90,15 @@ img { max-width: 100%; display: block; }
 .mt-neg-10 { margin-top: -10px; }
 .mt-neg-8 { margin-top: -8px; }
 
+.w-7 { width: 7%; }
+.w-8 { width: 8%; }
 .w-9 { width: 9%; }
 .w-10 { width: 10%; }
 .w-14 { width: 14%; }
+.w-16 { width: 16%; }
 .w-18 { width: 18%; }
 .w-20 { width: 20%; }
+.w-29 { width: 29%; }
 .w-30 { width: 30%; }
 .w-32 { width: 32%; }
 .mt-4 { margin: 4px 0 0; }
@@ -518,8 +522,8 @@ input:focus, select:focus, textarea:focus {
 .modulo-card .modulo-desc { font-size: 12.5px; color: var(--text-muted); }
 
 table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
-th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--border); color: var(--text); }
-th { color: var(--text-muted); font-weight: 600; font-size: 12px; text-transform: uppercase; }
+th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--border); color: var(--text); }
+th { color: var(--text-muted); font-weight: 600; font-size: 12px; text-transform: uppercase; background: var(--card-bg); position: sticky; top: 0; z-index: 1; }
 tr:hover td { background: var(--sidebar-hover); }
 
 /* Anchos de columna proporcionales al contenido real (nunca al azar) para
@@ -527,6 +531,14 @@ tr:hover td { background: var(--sidebar-hover); }
    Cargo/Notas anchas) — cada tabla define su propio <colgroup> con %. */
 table.tabla-fija { table-layout: fixed; }
 table.tabla-fija td { word-break: break-word; vertical-align: top; }
+
+/* Botones de acción de una fila (Editar/Nombre/Bloquear/Eliminar, etc.): en
+   vez de apilarlos en una sola columna (una fila con 6-7 acciones se
+   disparaba muy por debajo de sus celdas vecinas, dejando un vacío enorme),
+   se acomodan en una cuadrícula de 2-3 columnas según el espacio disponible.
+   Reutilizable en cualquier tabla con celda de acciones. */
+.acciones-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(108px, 1fr)); gap: 0 4px; align-items: start; }
+.acciones-grid .icon-btn { display: inline-block; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%; }
 
 .badge { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 11.5px; font-weight: 700; }
 .badge.ok { background: #e9f8ef; color: var(--success); }

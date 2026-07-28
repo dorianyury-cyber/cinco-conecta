@@ -31,8 +31,10 @@ function render() {
         <td>${v.fechaPublicacion ? formatDate(v.fechaPublicacion) : "-"}</td>
         <td>${conteoCandidatos[v.id] || 0}</td>
         <td>
-          <a class="icon-btn" href="candidatos.html?vacanteId=${v.id}">👥 Ver</a>
-          <button class="icon-btn" data-editar="${v.id}">✏️ Editar</button>
+          <div class="acciones-grid">
+            <a class="icon-btn" href="candidatos.html?vacanteId=${v.id}">👥 Ver</a>
+            <button class="icon-btn" data-editar="${v.id}">✏️ Editar</button>
+          </div>
         </td>
       </tr>
     `)

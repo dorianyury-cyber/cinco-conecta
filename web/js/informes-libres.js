@@ -474,8 +474,10 @@ function renderListaInformes() {
           <td><span class="badge ${inf.estado === "final" ? "ok" : "warn"}">${inf.estado === "final" ? "Final" : "Borrador"}</span></td>
           <td>${inf.creadoEn ? formatDate(inf.creadoEn) : "-"}</td>
           <td>
-            <button class="icon-btn" data-abrir="${inf.id}">📂 Abrir</button>
-            ${puedeBorrar ? `<button class="icon-btn danger" data-borrar="${inf.id}">🗑️ Eliminar</button>` : ""}
+            <div class="acciones-grid">
+              <button class="icon-btn" data-abrir="${inf.id}">📂 Abrir</button>
+              ${puedeBorrar ? `<button class="icon-btn danger" data-borrar="${inf.id}">🗑️ Eliminar</button>` : ""}
+            </div>
           </td>
         </tr>
       `;

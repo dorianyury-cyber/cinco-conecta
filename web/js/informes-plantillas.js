@@ -40,8 +40,10 @@ function renderPlantillas() {
           <td>${(p.campos || []).filter((c) => c.activo !== false).length} de ${(p.campos || []).length}</td>
           <td>${p.creadoEn ? formatDate(p.creadoEn) : "-"}</td>
           <td>
-            ${esAdmin ? `<button class="icon-btn" data-editar="${p.id}">✏️ Editar campos</button>` : ""}
-            ${esAdmin ? `<button class="icon-btn danger" data-eliminar="${p.id}">🗑️ Eliminar</button>` : ""}
+            <div class="acciones-grid">
+              ${esAdmin ? `<button class="icon-btn" data-editar="${p.id}">✏️ Editar campos</button>` : ""}
+              ${esAdmin ? `<button class="icon-btn danger" data-eliminar="${p.id}">🗑️ Eliminar</button>` : ""}
+            </div>
           </td>
         </tr>
       `)

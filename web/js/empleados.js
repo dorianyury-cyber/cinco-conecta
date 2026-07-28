@@ -42,15 +42,17 @@ function render() {
           <td>${e.rol === "admin" ? '<span class="badge gold">Admin</span>' : '<span class="badge muted">Empleado</span>'}${e.rol !== "admin" && e.permisos?.length ? ` <span class="badge muted text-xs">${e.permisos.length} permiso${e.permisos.length === 1 ? "" : "s"}</span>` : ""}</td>
           <td>${!bloqueado ? '<span class="badge ok">Activo</span>' : '<span class="badge danger">Bloqueado</span>'}</td>
           <td>
-            <button class="icon-btn" data-editar="${e.id}">✏️ Editar datos</button>
-            <button class="icon-btn" data-renombrar="${e.id}" data-nombre="${(e.nombre || "").replace(/"/g, "&quot;")}">✏️ Nombre</button>
-            <button class="icon-btn" data-reenviar="${e.id}">✉️ Reenviar acceso</button>
-            ${esUnoMismo ? "" : `
-              <button class="icon-btn" data-rol="${e.id}" data-rol-actual="${e.rol}">🔧 ${e.rol === "admin" ? "Quitar admin" : "Hacer admin"}</button>
-              ${e.rol === "admin" ? "" : `<button class="icon-btn" data-permisos="${e.id}">🔐 Permisos</button>`}
-              <button class="icon-btn ${bloqueado ? "" : "danger"}" data-estado="${e.id}" data-estado-actual="${e.estado}">${bloqueado ? "✅ Activar" : "🚫 Bloquear"}</button>
-              <button class="icon-btn danger" data-eliminar="${e.id}">🗑️ Eliminar</button>
-            `}
+            <div class="acciones-grid">
+              <button class="icon-btn" data-editar="${e.id}">✏️ Editar datos</button>
+              <button class="icon-btn" data-renombrar="${e.id}" data-nombre="${(e.nombre || "").replace(/"/g, "&quot;")}">✏️ Nombre</button>
+              <button class="icon-btn" data-reenviar="${e.id}">✉️ Reenviar acceso</button>
+              ${esUnoMismo ? "" : `
+                <button class="icon-btn" data-rol="${e.id}" data-rol-actual="${e.rol}">🔧 ${e.rol === "admin" ? "Quitar admin" : "Hacer admin"}</button>
+                ${e.rol === "admin" ? "" : `<button class="icon-btn" data-permisos="${e.id}">🔐 Permisos</button>`}
+                <button class="icon-btn ${bloqueado ? "" : "danger"}" data-estado="${e.id}" data-estado-actual="${e.estado}">${bloqueado ? "✅ Activar" : "🚫 Bloquear"}</button>
+                <button class="icon-btn danger" data-eliminar="${e.id}">🗑️ Eliminar</button>
+              `}
+            </div>
           </td>
         </tr>
       `;
