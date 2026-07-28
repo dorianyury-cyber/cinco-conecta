@@ -427,6 +427,18 @@ input:focus, select:focus, textarea:focus {
 }
 .nav-group.open .nav-group-items { display: flex; }
 .nav-group-items a { font-size: 13.5px; }
+
+/* Foto real en vez de emoji junto a cada enlace del menú (mismo lenguaje
+   visual — círculo con borde ámbar — que Corporativo/Conecta en cinco-sas). */
+.sidebar nav a .nav-icono {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1.5px solid var(--cinco-amber);
+  margin-right: 9px;
+  flex-shrink: 0;
+}
 .nav-group[data-grupo="talento"] { border-top: 1px solid var(--border); padding-top: 6px; margin-top: 4px; }
 
 .main { flex: 1; padding: 28px 36px; max-width: 1600px; }
