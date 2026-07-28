@@ -79,7 +79,12 @@
       </header>
 
       <div class="card">
-        <h2>Reportar</h2>
+        <button type="button" class="form-trigger">
+          <span class="form-trigger-icon">⚠️</span>
+          <span class="form-trigger-label">Reportar incidente o casi-accidente</span>
+          <span class="form-trigger-chevron">▾</span>
+        </button>
+        <div class="collapsible-form"><div class="collapsible-form-inner">
         <form id="incidenteForm">
           <label for="tipo">Tipo</label>
           <select id="tipo">
@@ -112,6 +117,7 @@
           <div class="alert" id="alertBox"></div>
           <button type="submit" class="btn" id="reportarBtn">Reportar</button>
         </form>
+        </div></div>
       </div>
 
       <div class="card">

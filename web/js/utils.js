@@ -281,3 +281,16 @@ export function setActiveNav() {
 export async function iniciarSesionStaff(correo, password) {
   await signInWithEmailAndPassword(auth, correo, password);
 }
+
+/**
+ * Tarjetas de creación (Invitar empleado, Reportar incidente, Nueva acción
+ * correctiva, etc.) arrancan colapsadas detrás de un botón `.form-trigger` —
+ * un clic alterna `.abierto` en la tarjeta contenedora (ver `.collapsible-form`
+ * en styles.css). Auto-ejecutado una sola vez aquí porque todas las páginas
+ * ya importan este módulo; ninguna página necesita cablear esto por su cuenta.
+ */
+document.addEventListener("DOMContentLoaded", () => {
+  document.querySelectorAll(".form-trigger").forEach((btn) => {
+    btn.addEventListener("click", () => btn.closest(".card")?.classList.toggle("abierto"));
+  });
+});

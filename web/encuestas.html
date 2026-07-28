@@ -79,7 +79,12 @@
       </header>
 
       <div class="card solo-admin hidden" id="crearEncuestaCard">
-        <h2>Nueva encuesta</h2>
+        <button type="button" class="form-trigger">
+          <span class="form-trigger-icon">📊</span>
+          <span class="form-trigger-label">Nueva encuesta</span>
+          <span class="form-trigger-chevron">▾</span>
+        </button>
+        <div class="collapsible-form"><div class="collapsible-form-inner">
         <form id="crearEncuestaForm">
           <label for="tituloEncuesta">Título</label>
           <input type="text" id="tituloEncuesta" required maxlength="150">
@@ -90,6 +95,7 @@
           <div class="alert" id="crearAlertBox"></div>
           <button type="submit" class="btn" id="crearEncuestaBtn">Publicar encuesta</button>
         </form>
+        </div></div>
       </div>
 
       <div id="encuestaActivaContenedor"></div>

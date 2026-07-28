@@ -78,8 +78,13 @@
         <h1>🧑‍💼 Empleados</h1>
       </header>
 
-      <div class="card">
-        <h2>Invitar nuevo empleado</h2>
+      <div class="card" id="invitarCard">
+        <button type="button" class="form-trigger">
+          <span class="form-trigger-icon">➕</span>
+          <span class="form-trigger-label">Invitar nuevo empleado</span>
+          <span class="form-trigger-chevron">▾</span>
+        </button>
+        <div class="collapsible-form"><div class="collapsible-form-inner">
         <form id="invitarForm">
           <label for="nombreEmpleado">Nombre completo</label>
           <input type="text" id="nombreEmpleado" required maxlength="100">
@@ -147,6 +152,7 @@
           <div class="alert" id="alertBox"></div>
           <button type="submit" class="btn" id="invitarBtn">Enviar invitación</button>
         </form>
+        </div></div>
       </div>
 
       <div class="card">

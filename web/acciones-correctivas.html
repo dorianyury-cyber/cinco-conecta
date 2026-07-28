@@ -79,7 +79,12 @@
       </header>
 
       <div class="card solo-admin hidden" id="crearCard">
-        <h2>Nueva acción correctiva</h2>
+        <button type="button" class="form-trigger">
+          <span class="form-trigger-icon">➕</span>
+          <span class="form-trigger-label">Nueva acción correctiva</span>
+          <span class="form-trigger-chevron">▾</span>
+        </button>
+        <div class="collapsible-form"><div class="collapsible-form-inner">
         <p class="text-muted text-sm" id="origenTexto"></p>
         <form id="crearForm">
           <label for="descripcion">Descripción</label>
@@ -94,6 +99,7 @@
           <div class="alert" id="crearAlertBox"></div>
           <button type="submit" class="btn" id="crearBtn">Crear</button>
         </form>
+        </div></div>
       </div>
 
       <div class="card">

@@ -79,7 +79,12 @@
       </header>
 
       <div class="card solo-admin hidden" id="subirCard">
-        <h2>Subir documento</h2>
+        <button type="button" class="form-trigger">
+          <span class="form-trigger-icon">📁</span>
+          <span class="form-trigger-label">Subir documento</span>
+          <span class="form-trigger-chevron">▾</span>
+        </button>
+        <div class="collapsible-form"><div class="collapsible-form-inner">
         <form id="subirForm">
           <label for="titulo">Título</label>
           <input type="text" id="titulo" required maxlength="150">
@@ -100,6 +105,7 @@
           <div class="alert" id="alertBox"></div>
           <button type="submit" class="btn" id="subirBtn">Subir</button>
         </form>
+        </div></div>
       </div>
 
       <div class="card">

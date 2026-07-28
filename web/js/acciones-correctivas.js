@@ -13,7 +13,13 @@ const origen = params.get("origenId")
   : { tipo: "manual", refId: null };
 
 if (esAdmin) {
-  document.getElementById("crearCard").classList.remove("hidden");
+  const crearCard = document.getElementById("crearCard");
+  crearCard.classList.remove("hidden");
+  // Si se llega desde "+ Crear acción correctiva" en Incidentes (con
+  // origenId en la URL), el formulario arranca ya desplegado — quien hizo
+  // clic en ese enlace espera verlo listo para llenar, no una tarjeta
+  // colapsada que hay que volver a abrir.
+  if (origen.refId) crearCard.classList.add("abierto");
   if (params.get("origenTitulo")) {
     document.getElementById("origenTexto").textContent = `Originada en: ${params.get("origenTitulo")}`;
   }

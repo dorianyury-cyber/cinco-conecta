@@ -79,7 +79,12 @@
       </header>
 
       <div class="card solo-admin hidden" id="subirCard">
-        <h2>Subir plantilla nueva</h2>
+        <button type="button" class="form-trigger">
+          <span class="form-trigger-icon">📑</span>
+          <span class="form-trigger-label">Subir plantilla nueva</span>
+          <span class="form-trigger-chevron">▾</span>
+        </button>
+        <div class="collapsible-form"><div class="collapsible-form-inner">
         <p class="text-muted text-sm">El archivo debe ser un Word (.docx) con los campos a llenar escritos entre llaves, por ejemplo <code>{cliente}</code> o <code>{fecha_inspeccion}</code>.</p>
         <form id="subirForm">
           <label for="nombre">Nombre de la plantilla</label>
@@ -95,6 +100,7 @@
           <div class="alert" id="alertBox"></div>
           <button type="submit" class="btn" id="subirBtn">Subir y detectar campos</button>
         </form>
+        </div></div>
       </div>
 
       <div class="card">

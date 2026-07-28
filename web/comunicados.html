@@ -79,7 +79,12 @@
       </header>
 
       <div class="card solo-admin hidden" id="publicarCard">
-        <h2>Publicar comunicado</h2>
+        <button type="button" class="form-trigger">
+          <span class="form-trigger-icon">📢</span>
+          <span class="form-trigger-label">Publicar comunicado</span>
+          <span class="form-trigger-chevron">▾</span>
+        </button>
+        <div class="collapsible-form"><div class="collapsible-form-inner">
         <form id="comunicadoForm">
           <label for="tituloComunicado">Título</label>
           <input type="text" id="tituloComunicado" required maxlength="150">
@@ -94,6 +99,7 @@
           <div class="alert" id="alertBox"></div>
           <button type="submit" class="btn" id="publicarBtn">Publicar</button>
         </form>
+        </div></div>
       </div>
 
       <div id="feedComunicados"><p class="text-muted text-center">Cargando...</p></div>
