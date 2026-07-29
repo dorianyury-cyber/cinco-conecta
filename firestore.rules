@@ -123,56 +123,5 @@ service cloud.firestore {
       allow read: if isEmpleado();
       allow write: if tienePermiso('auditorias');
     }
-
-    // ---- Informes de interventoría ----
-
-    // Plantillas .docx de clientes con formato propio: solo se suben/editan/
-    // borran desde Cloud Functions (subirPlantilla, actualizarCamposPlantilla,
-    // eliminarPlantilla) porque implican manejar el archivo con el Admin SDK.
-    match /plantillasInforme/{id} {
-      allow read: if isEmpleado();
-      allow write: if false;
-    }
-
-    // Informes generados a partir de una plantilla (solo vía Cloud Function
-    // generarInformePlantilla, que también maneja el archivo .docx final).
-    match /informesPlantilla/{id} {
-      allow read: if isEmpleado();
-      allow write: if false;
-    }
-
-    // Informes de formato libre (constructor de bloques): no son "archivo"
-    // en sí mismos (las imágenes de sus bloques se suben aparte con
-    // subirImagenInforme), así que se escriben directo desde el cliente,
-    // igual que auditorias/accionesCorrectivas. Reglas clave:
-    // - autorUid queda fijado a quien crea (nadie puede adjudicarse un
-    //   informe de otra persona).
-    // - Una vez marcado "final", solo un admin puede seguir editando o
-    //   borrando — control de información documentada (ISO 9001), no una
-    //   etiqueta cosmética.
-    match /informesLibres/{id} {
-      allow read: if isEmpleado();
-      allow create: if isEmpleado()
-        && request.resource.data.autorUid == request.auth.uid
-        && request.resource.data.estado == 'borrador';
-      allow update: if tienePermiso('informes')
-        || (isEmpleado()
-            && resource.data.autorUid == request.auth.uid
-            && resource.data.estado == 'borrador'
-            && request.resource.data.autorUid == resource.data.autorUid
-            && request.resource.data.creadoEn == resource.data.creadoEn
-            && request.resource.data.codigo == resource.data.codigo);
-      allow delete: if tienePermiso('informes')
-        || (isEmpleado() && resource.data.autorUid == request.auth.uid && resource.data.estado == 'borrador');
-    }
-
-    // Contador atómico para el código de control documental (INT-{año}-{consecutivo}),
-    // compartido entre informesLibres e informesPlantilla — misma naturaleza de
-    // documento (informe de interventoría), una sola secuencia por año. Cualquier
-    // empleado puede incrementarlo porque cualquiera puede crear un informe libre;
-    // mismo nivel de confianza que auditorias/accionesCorrectivas.
-    match /contadoresCodigo/{anio} {
-      allow read, write: if isEmpleado();
-    }
   }
 }

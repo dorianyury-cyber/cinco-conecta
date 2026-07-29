@@ -1,5 +1,5 @@
 import { collection, query, where, getDocs, getCountFromServer } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
-import { db, requireAuth, wireLogoutButton, setActiveNav, formatDate, hoyBogotaStr, diasHastaProximaFechaAnual, AREAS } from "./utils.js";
+import { db, requireAuth, wireLogoutButton, setActiveNav, hoyBogotaStr, diasHastaProximaFechaAnual, AREAS } from "./utils.js";
 
 await requireAuth();
 wireLogoutButton();
@@ -50,14 +50,12 @@ function renderBarChart(container, filas) {
   });
 }
 
-const [staffSnap, vacantesAbiertasSnap, incidentesAbiertosCount, accionesSnap, auditoriasSnap, informesLibresSnap, informesPlantillaSnap] = await Promise.all([
+const [staffSnap, vacantesAbiertasSnap, incidentesAbiertosCount, accionesSnap, auditoriasSnap] = await Promise.all([
   getDocs(collection(db, "staff")),
   getDocs(query(collection(db, "vacantes"), where("estado", "==", "abierta"))),
   getCountFromServer(query(collection(db, "incidentes"), where("estado", "==", "abierto"))),
   getDocs(collection(db, "accionesCorrectivas")),
-  getDocs(collection(db, "auditorias")),
-  getDocs(query(collection(db, "informesLibres"), where("estado", "==", "final"))),
-  getDocs(collection(db, "informesPlantilla"))
+  getDocs(collection(db, "auditorias"))
 ]);
 
 const empleados = staffSnap.docs.map((d) => d.data());
@@ -72,16 +70,10 @@ const auditoriasAbiertas = auditorias.filter((a) => a.estado !== "cerrada");
 const limite30Dias = fechaMenosDias(30);
 const vacantesEstancadas = vacantesAbiertas.filter((v) => (v.fechaPublicacion || hoy) <= limite30Dias);
 
-const informes = [
-  ...informesLibresSnap.docs.map((d) => { const i = d.data(); return { codigo: i.codigo, nombre: i.titulo, cliente: i.cliente, creadoEn: i.creadoEn }; }),
-  ...informesPlantillaSnap.docs.map((d) => { const i = d.data(); return { codigo: i.codigo, nombre: i.plantillaNombre, cliente: i.cliente, creadoEn: i.creadoEn }; })
-].sort((a, b) => (b.creadoEn?.seconds || 0) - (a.creadoEn?.seconds || 0));
-
 // ---- Stat tiles ----
 document.getElementById("statEmpleados").textContent = empleadosActivos.length;
 document.getElementById("statVacantes").textContent = vacantesAbiertas.length;
 document.getElementById("statIncidentes").textContent = incidentesAbiertosNum;
-document.getElementById("statInformes").textContent = informes.length;
 
 // ---- Estado general (semáforo): lo que necesita atención hoy, calculado
 // contra datos reales de cada módulo — nada aquí es un contador inventado. ----
@@ -160,16 +152,3 @@ renderBarChart(document.getElementById("graficoAreas"),
     .sort((a, b) => b[1] - a[1])
     .map(([label, valor]) => ({ label, valor }))
 );
-
-// ---- Informes de Interventoría: últimos generados ----
-const tablaInformes = document.getElementById("tablaInformes");
-tablaInformes.innerHTML = informes.length === 0
-  ? `<tr><td colspan="4" class="text-muted text-center">Sin informes generados todavía.</td></tr>`
-  : informes.slice(0, 8).map((i) => `
-    <tr>
-      <td>${i.codigo || "-"}</td>
-      <td>${i.nombre || "-"}</td>
-      <td>${i.cliente || "-"}</td>
-      <td>${formatDate(i.creadoEn)}</td>
-    </tr>
-  `).join("");

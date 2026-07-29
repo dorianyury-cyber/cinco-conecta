@@ -10,7 +10,7 @@ function generarPasswordTemporal() {
 const AREAS_VALIDAS = ["experiencia", "sgi", "interventoria", "talento", "administrativo"];
 const PERMISOS_VALIDOS = [
   "vacantes", "candidatos", "comunicados", "encuestas", "incidentes",
-  "accionesCorrectivas", "documentos", "auditorias", "informes"
+  "accionesCorrectivas", "documentos", "auditorias"
 ];
 const TIPOS_VINCULACION_VALIDOS = ["indefinido", "fijo", "prestacion_servicios", "aprendiz"];
 const FECHA_REGEX = /^\d{4}-\d{2}-\d{2}$/;
