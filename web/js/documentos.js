@@ -10,15 +10,18 @@ const esAdmin = tienePermiso(perfil, "documentos");
 if (esAdmin) document.getElementById("subirCard").classList.remove("hidden");
 
 const tabla = document.getElementById("tablaDocumentos");
+const filtroCategoria = document.getElementById("filtroCategoria");
 const CATEGORIA_TEXTO = { procedimiento: "Procedimiento", instructivo: "Instructivo", formato: "Formato" };
 
 let documentos = [];
 function render() {
-  if (documentos.length === 0) {
-    tabla.innerHTML = '<tr><td colspan="5" class="text-muted text-center">Aún no hay documentos.</td></tr>';
+  const categoria = filtroCategoria.value;
+  const filtrados = categoria ? documentos.filter((d) => d.categoria === categoria) : documentos;
+  if (filtrados.length === 0) {
+    tabla.innerHTML = `<tr><td colspan="5" class="text-muted text-center">${documentos.length === 0 ? "Aún no hay documentos." : "Ningún documento coincide con el filtro."}</td></tr>`;
     return;
   }
-  tabla.innerHTML = documentos
+  tabla.innerHTML = filtrados
     .map((d) => `
       <tr>
         <td><b>${d.titulo}</b></td>
@@ -37,6 +40,8 @@ onSnapshot(query(collection(db, "documentos"), orderBy("creadoEn", "desc")), (sn
 }, (err) => {
   tabla.innerHTML = `<tr><td colspan="5" class="text-muted text-center">${friendlyError(err)}</td></tr>`;
 });
+
+filtroCategoria.addEventListener("change", render);
 
 tabla.addEventListener("click", async (e) => {
   const id = e.target.dataset.descargar;
