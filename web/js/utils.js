@@ -1,7 +1,7 @@
 // Inicialización de Firebase + utilidades compartidas por todas las páginas
 // del panel de staff de Cinco Conecta.
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import { getAuth, onAuthStateChanged, signOut, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+import { getAuth, onAuthStateChanged, signOut, signInWithEmailAndPassword, setPersistence, browserSessionPersistence } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-functions.js";
 import { initializeAppCheck, ReCaptchaV3Provider } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app-check.js";
@@ -11,6 +11,13 @@ export const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 export const functions = getFunctions(app);
+
+// Por defecto Firebase Auth usa browserLocalPersistence: la sesión queda
+// guardada indefinidamente en el navegador, sin volver a pedir clave hasta
+// un logout explícito. Se cambia a browserSessionPersistence para que la
+// sesión expire al cerrar el navegador (pestaña/ventana) — pedido explícito
+// del usuario tras notar que entraba a Conecta sin ingresar la clave.
+setPersistence(auth, browserSessionPersistence);
 
 if (RECAPTCHA_SITE_KEY && RECAPTCHA_SITE_KEY !== "PENDIENTE") {
   initializeAppCheck(app, {
