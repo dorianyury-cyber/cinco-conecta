@@ -260,6 +260,27 @@ input:focus, select:focus, textarea:focus {
   border-color: var(--cinco-amber-dark);
   box-shadow: inset 0 1px 2px rgba(18, 22, 29, 0.05), 0 0 0 3px rgba(254, 178, 9, 0.2);
 }
+
+/* Botón de mostrar/ocultar contraseña (ver web/js/clave-visible.js) —
+   portado de Cinco SAS control. */
+.control-clave-wrap { position: relative; }
+.control-clave-wrap input { padding-right: 44px; }
+.control-clave-toggle {
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 34px;
+  height: 34px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+  color: var(--text-muted);
+  border-radius: 8px;
+}
+.control-clave-toggle:hover { color: var(--cinco-amber-dark); background: rgba(254, 178, 9, 0.12); }
 .honeypot-field { position: absolute; left: -9999px; top: -9999px; }
 
 .btn {
@@ -298,6 +319,7 @@ input:focus, select:focus, textarea:focus {
 .alert.error { background: #fdecec; color: var(--danger); display: block; }
 .alert.success { background: #e9f8ef; color: var(--success); display: block; }
 .alert.info { background: #eef6fb; color: #1f6fb2; display: block; }
+.alert.warn { background: #fff4e0; color: var(--warning); display: block; }
 
 /* =========================================================
    Panel de staff — app shell con barra lateral
@@ -325,7 +347,7 @@ input:focus, select:focus, textarea:focus {
 
 .app-shell { display: flex; min-height: 100vh; }
 .sidebar {
-  width: 250px;
+  width: 266px;
   background: var(--sidebar-bg);
   color: var(--text);
   display: flex;
@@ -510,6 +532,15 @@ input:focus, select:focus, textarea:focus {
 .collapsible-form-inner { overflow: hidden; }
 .card.abierto .collapsible-form { grid-template-rows: 1fr; }
 .card.abierto .collapsible-form-inner { margin-top: 18px; }
+
+/* Cabecera de una tarjeta de estrategia (Informes de Gestión) que hace de
+   acordeón: toda la fila es clicable, con su propio chevron discreto (no el
+   botón grande de .form-trigger, que aquí se repetiría 10 veces y saturaría
+   la pantalla). Reutiliza el mismo .collapsible-form de arriba para el
+   cuerpo. */
+.collapsible-toggle { cursor: pointer; }
+.collapsible-chevron { font-size: 13px; color: var(--text-muted); transition: transform 0.2s ease; flex-shrink: 0; margin-left: auto; }
+.card.abierto .collapsible-chevron { transform: rotate(180deg); }
 
 /* Variante compacta del mismo lenguaje visual de .form-trigger (degradado
    navy/ámbar, textura achurada, relieve 3D) para botones "+ Nuevo/a X" que
@@ -716,6 +747,21 @@ table.tabla-fija td { word-break: break-word; vertical-align: top; }
 .toolbar .btn { width: auto; margin-top: 0; padding: 9px 16px; font-size: 13px; }
 .toolbar input, .toolbar select { width: auto; margin-top: 0; padding: 8px 10px; font-size: 13px; }
 
+/* Barra de avance general de un informe de gestión (n de N estrategias
+   completas) — reutilizable en cualquier otro listado que necesite mostrar
+   un porcentaje de avance sin recurrir a una librería de gráficos. */
+.progreso-bar { background: var(--sidebar-bg); border-radius: 999px; height: 10px; overflow: hidden; margin: 8px 0; }
+.progreso-fill { background: var(--success); height: 100%; border-radius: 999px; transition: width 0.3s ease; }
+
+/* Textarea de solo lectura de una estrategia no asignada a quien mira —
+   visualmente "apagada" para reforzar que no es su sección editable. */
+textarea:disabled, select:disabled, textarea[readonly] { background: var(--sidebar-bg); color: var(--text-muted); cursor: not-allowed; }
+
+/* Subtítulo/zona de una estrategia (ej. Brigadas → Zona Norte) — indentado
+   para que se vea como parte de su estrategia sin dejar de ser, por debajo,
+   un documento y un formulario tan independiente como cualquier otro. */
+.estrategia-hija { margin-left: 22px; border-left: 3px solid var(--border); }
+
 .modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.45); display: none; align-items: center; justify-content: center; z-index: 50; padding: 20px; }
 .modal-backdrop.open { display: flex; }
 .modal { background: var(--card-bg); border-radius: var(--radius); padding: 24px; width: 100%; max-width: 480px; max-height: 90vh; overflow-y: auto; }
@@ -755,3 +801,256 @@ table.tabla-fija td { word-break: break-word; vertical-align: top; }
 .candidato-card:hover { outline: 2px solid var(--cinco-amber); }
 .candidato-card .nombre { font-weight: 700; color: var(--text); }
 .candidato-card .vacante { color: var(--text-muted); font-size: 12px; }
+
+/* ---- editor de bloques (párrafo/tabla/imagen) de una estrategia en
+   Informes de Gestión — portado tal cual desde Cinco SAS control
+   (web/assets/css/styles.css), mismos tokens de marca. ---- */
+.control-btn-mini {
+  padding: 5px 12px;
+  border-radius: 999px;
+  border: 1.5px solid var(--border);
+  background: none;
+  color: var(--cinco-navy);
+  font-weight: 600;
+  font-size: 11.5px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.control-btn-mini:hover { border-color: var(--cinco-amber-dark); color: var(--cinco-amber-dark); }
+.control-btn-mini:disabled { opacity: 0.35; cursor: default; }
+@media (prefers-color-scheme: dark) { .control-btn-mini { color: #fff; } }
+
+/* Numeral indicativo (no editable) junto a un título/tabla/imagen en el
+   editor — solo de referencia para quien llena el contenido, muestra el
+   número que le tocaría en el PDF; el real se recalcula al generarlo. */
+.control-numero-indicativo {
+  flex: 0 0 auto;
+  min-width: 34px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: var(--bg-soft, rgba(0,0,0,0.05));
+  color: var(--text-muted);
+  font-family: monospace;
+  font-size: 12px;
+  font-weight: 700;
+  text-align: center;
+  white-space: nowrap;
+  user-select: none;
+}
+@media (prefers-color-scheme: dark) { .control-numero-indicativo { background: rgba(255,255,255,0.08); } }
+
+/* ---- editor de bloque de firma — portado tal cual desde Cinco SAS
+   control (web/js/control/informes.js + informes-pdf.js). ---- */
+.control-firma-editor { display: flex; flex-direction: column; gap: 8px; }
+.control-firma-firmantes { display: flex; flex-direction: column; gap: 6px; }
+.control-firma-firmante { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.control-firma-firmante input { flex: 1; min-width: 160px; }
+.control-firma-imagen-wrap { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.control-firma-imagen-preview { height: 110px; max-width: 260px; object-fit: contain; border: 1px solid var(--border); border-radius: 4px; background: #fff; }
+.control-firma-tamano { display: flex; align-items: center; gap: 4px; font-size: 12.5px; color: var(--text-muted); white-space: nowrap; }
+.control-firma-tamano input { flex: 0 0 auto; min-width: 0; width: 52px; }
+
+/* ---- campo de texto enriquecido (negrilla/cursiva/viñeta/alineación) de
+   un bloque "párrafo" — portado de Cinco SAS control, con los botones de
+   alineación agregados aquí (ver texto-rico.js). ---- */
+.control-rich-toolbar { display: flex; gap: 4px; margin-bottom: 6px; flex-wrap: wrap; }
+.control-rich-btn, .control-rich-color {
+  width: 26px; height: 26px; border-radius: 6px;
+  border: 1px solid var(--border); background: var(--card-bg);
+  cursor: pointer; padding: 0;
+}
+.control-rich-btn { font-size: 13px; color: var(--text); display: inline-flex; align-items: center; justify-content: center; }
+.control-rich-btn:hover, .control-rich-color:hover { border-color: var(--cinco-amber); }
+.control-rich-btn.activo { border-color: var(--cinco-amber); background: rgba(254, 178, 9, 0.18); }
+.control-rich-color { padding: 2px; }
+.control-rich-editable {
+  width: 100%; min-height: 70px; padding: 10px 12px;
+  border: 1px solid var(--border); border-radius: 8px; font-size: 13.5px;
+  background: var(--bg); color: var(--text); font-family: inherit; overflow-y: auto;
+}
+.control-rich-editable:focus { outline: none; border-color: var(--cinco-amber); box-shadow: 0 0 0 3px rgba(254, 178, 9, 0.18); }
+.control-rich-editable:empty:before { content: attr(data-placeholder); color: var(--text-muted); }
+.control-rich-editable ul, .control-rich-editable ol { margin: 4px 0; padding-left: 22px; }
+.control-rich-editable li { margin: 2px 0; }
+
+.control-btn-danger {
+  background: none;
+  border: 1.5px solid #d64545;
+  color: #b23434;
+  font-weight: 700;
+  font-size: 12px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  cursor: pointer;
+}
+.control-btn-danger:hover { background: rgba(214, 69, 69, 0.1); }
+@media (prefers-color-scheme: dark) { .control-btn-danger { color: #ff8a8a; border-color: #ff8a8a; } }
+
+.control-bloques-header { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.control-bloques { display: flex; flex-direction: column; gap: 10px; margin-bottom: 4px; }
+.control-bloque {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px;
+}
+.control-bloque-contenido { flex: 1; min-width: 0; }
+.control-bloque-contenido textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--card-bg);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 13.5px;
+  resize: vertical;
+}
+.control-bloque-contenido input[type="text"] {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--card-bg);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 13.5px;
+  margin-top: 6px;
+}
+.control-bloque-imagen { max-width: 100%; max-height: 160px; border-radius: 6px; display: block; margin-bottom: 8px; }
+.control-imagen-tamano { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; font-size: 12.5px; color: var(--text-muted); }
+.control-imagen-tamano input[type="range"] { flex: 1; max-width: 200px; }
+.control-bloque-controles { display: flex; flex-direction: column; gap: 6px; flex-shrink: 0; }
+.control-bloques-botones { display: flex; gap: 10px; margin: 4px 0 20px; flex-wrap: wrap; }
+.control-bloque-etiqueta { display: block; font-size: 11.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; color: var(--text-muted); margin-bottom: 4px; }
+
+/* Hueco entre bloques (y antes del primero): botones siempre visibles para
+   insertar un bloque nuevo ahí mismo, no solo al final de la lista. */
+.control-bloque-gap {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  padding: 6px;
+  background: rgba(254, 178, 9, 0.06);
+  border: 1px dashed rgba(254, 178, 9, 0.35);
+  border-radius: 10px;
+}
+
+/* Listado de informes de gestión: tarjetas en fila (varias por línea según
+   ancho disponible) en vez de una franja a todo lo ancho por informe —
+   mismo estilo/comportamiento que .modulo-card en Copropiedad Saludable
+   (borde + sombra + se eleva un poco al pasar el mouse). */
+.informes-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 14px;
+}
+.informe-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 16px 18px;
+  text-decoration: none;
+  color: var(--text);
+  transition: transform 0.1s ease, border-color 0.1s ease;
+}
+.informe-card:hover { transform: translateY(-2px); border-color: var(--cinco-amber); text-decoration: none; }
+.informe-card h3 { margin: 0; font-size: 15px; font-weight: 700; color: var(--cinco-amber-dark); }
+.informe-card-badges { display: flex; flex-wrap: wrap; gap: 6px; }
+.informe-card-meta { margin: 0; font-size: 12px; color: var(--text-muted); }
+
+/* Separación más clara entre tarjetas de estrategia consecutivas — sin esto,
+   la barra de "Reasignar/Eliminar" del final de una tarjeta queda pegada al
+   título de la siguiente y parece pertenecer a esa otra estrategia. */
+#listaEstrategias > .card { margin-bottom: 32px; border-top: 3px solid var(--cinco-amber); }
+
+.control-tabla-editor { display: flex; flex-direction: column; gap: 8px; }
+/* Mini-barra flotante que aparece pegada a la última celda seleccionada
+   (ver actualizarResaltado en informes-gestion.js) — mismas acciones más
+   usadas que la barra fija de abajo, para no tener que bajar hasta allá
+   cada vez, como en Excel. */
+.control-tabla-flotante {
+  position: absolute;
+  display: flex;
+  gap: 4px;
+  background: var(--card-bg);
+  border: 1px solid var(--cinco-amber);
+  border-radius: 8px;
+  padding: 4px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2);
+  z-index: 20;
+}
+.control-tabla-tamano { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.control-tabla-tamano label { display: flex; align-items: center; gap: 4px; font-size: 12.5px; color: var(--text-muted); }
+.control-tabla-tamano input[type="number"] {
+  width: 60px;
+  padding: 4px 6px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--card-bg);
+  color: var(--text);
+  font-size: 12.5px;
+}
+.control-tabla-grid { display: grid; gap: 4px; overflow-x: auto; }
+.control-tabla-grid input, .control-tabla-grid select, .control-tabla-grid textarea {
+  min-width: 90px;
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--card-bg);
+  color: var(--text);
+  font-size: 12.5px;
+}
+/* La celda es un <textarea> (para que un salto de línea se quede dentro de
+   la misma celda en vez de saltar a la de abajo) pero debe verse y
+   comportarse como el <input> de una sola línea que era antes — sin barra
+   de redimensionar a mano ni scrollbar propia; el alto real lo ajusta JS
+   (ver "autoAltura" en informes-gestion.js) según el contenido. */
+.control-tabla-grid textarea {
+  resize: none;
+  overflow: hidden;
+  font-family: inherit;
+  line-height: 1.35;
+}
+/* Resalta el rango de celdas seleccionado por arrastre, antes de combinar
+   o separar — mismo acento ámbar que el resto de la suite. */
+.control-tabla-grid input.control-celda-sel, .control-tabla-grid select.control-celda-sel, .control-tabla-grid textarea.control-celda-sel {
+  border-color: var(--cinco-amber);
+  box-shadow: 0 0 0 2px rgba(254, 178, 9, 0.35);
+  background: rgba(254, 178, 9, 0.1);
+}
+.control-tabla-botones { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+
+/* Botones del editor de tabla agrupados en "tarjeticas" por lo que hacen
+   (filas/columnas, combinar, alinear...) en vez de una sola fila corrida —
+   ver grupoBotones() en informes-gestion.js. */
+.control-tabla-grupos { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
+.control-tabla-grupo {
+  background: var(--sidebar-bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.control-tabla-grupo-titulo { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; color: var(--text-muted); }
+.control-tabla-grupo-botones { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.control-tabla-color {
+  width: 34px;
+  height: 30px;
+  padding: 2px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--card-bg);
+  cursor: pointer;
+}

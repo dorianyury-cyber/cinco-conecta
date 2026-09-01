@@ -123,5 +123,38 @@ service cloud.firestore {
       allow read: if isEmpleado();
       allow write: if tienePermiso('auditorias');
     }
+
+    // Catálogo de nombres de estrategia/subtítulo ya usados en informes de
+    // gestión anteriores — solo para autocompletar el formulario de
+    // creación (no es dato sensible, pero solo el coordinador lo toca).
+    match /configuracion/informesGestion {
+      allow read, write: if tienePermiso('informesGestion');
+    }
+
+    // Informes de gestión mensuales por contrato (ej. PER-2026-001),
+    // compendiados a partir de las "estrategias" que aporta cada
+    // responsable. El documento padre (metadatos + estado) solo lo toca
+    // quien tiene el permiso 'informesGestion' (coordinador/admin); cada
+    // estrategia vive en subcolección — un documento por estrategia, nunca
+    // un solo blob compartido — así el guardado de una persona jamás
+    // pisa el de otra, y cada quien solo puede escribir en la(s) suya(s).
+    match /informesGestion/{informeId} {
+      allow read: if isEmpleado();
+      allow create, delete: if tienePermiso('informesGestion');
+      allow update: if tienePermiso('informesGestion');
+
+      match /estrategias/{estrategiaId} {
+        allow read: if isEmpleado();
+        allow create, delete: if tienePermiso('informesGestion');
+        // El responsable asignado solo puede tocar el contenido/estado de
+        // SU estrategia (nunca reasignarla ni editar otra), y solo mientras
+        // el informe padre no esté consolidado.
+        allow update: if tienePermiso('informesGestion')
+          || (isEmpleado()
+              && request.auth.uid in resource.data.responsables
+              && get(/databases/$(database)/documents/informesGestion/$(informeId)).data.estado != 'consolidado'
+              && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['contenido', 'estado', 'actualizadoEn', 'actualizadoPor', 'actualizadoPorNombre']));
+      }
+    }
   }
 }

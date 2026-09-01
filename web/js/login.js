@@ -1,5 +1,8 @@
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 import { auth, showAlert, clearAlert, friendlyError, iniciarSesionStaff } from "./utils.js";
+import { agregarToggleClave } from "./clave-visible.js";
+
+agregarToggleClave(document.getElementById("password"));
 
 const form = document.getElementById("loginForm");
 const alertBox = document.getElementById("alertBox");

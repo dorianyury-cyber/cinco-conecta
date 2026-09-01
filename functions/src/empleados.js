@@ -10,7 +10,7 @@ function generarPasswordTemporal() {
 const AREAS_VALIDAS = ["experiencia", "sgi", "interventoria", "talento", "administrativo"];
 const PERMISOS_VALIDOS = [
   "vacantes", "candidatos", "comunicados", "encuestas", "incidentes",
-  "accionesCorrectivas", "documentos", "auditorias"
+  "accionesCorrectivas", "documentos", "auditorias", "informesGestion"
 ];
 const TIPOS_VINCULACION_VALIDOS = ["indefinido", "fijo", "prestacion_servicios", "aprendiz"];
 const FECHA_REGEX = /^\d{4}-\d{2}-\d{2}$/;
@@ -205,9 +205,10 @@ const renombrarEmpleado = onCall({ enforceAppCheck: true }, async (request) => {
   return { ok: true };
 });
 
-// Actualiza SOLO los 8 campos de perfil de un empleado ya existente
+// Actualiza el nombre, el correo (nombre/correo también viven en
+// Authentication, se sincronizan ahí primero) y los 8 campos de perfil
 // (cédula, teléfono, cargo, área, jefe inmediato, fecha de ingreso, tipo de
-// vinculación, fecha de nacimiento) — nunca nombre/correo/estado/rol, que
+// vinculación, fecha de nacimiento) de un empleado ya existente. estado/rol
 // siguen con sus propias funciones dedicadas.
 const actualizarDatosEmpleado = onCall({ enforceAppCheck: true }, async (request) => {
   await requireAdmin(request);
@@ -221,12 +222,27 @@ const actualizarDatosEmpleado = onCall({ enforceAppCheck: true }, async (request
     throw new HttpsError("not-found", "Ese empleado ya no existe.");
   }
 
+  const nombre = String(request.data?.nombre || "").trim().slice(0, 100);
+  const correo = String(request.data?.correo || "").trim().toLowerCase().slice(0, 120);
+  if (!nombre || !correo) {
+    throw new HttpsError("invalid-argument", "Falta el nombre o el correo del empleado.");
+  }
+
   const datosPerfil = await normalizarDatosPerfil(request.data);
   if (datosPerfil.jefeInmediatoUid === uid) {
     throw new HttpsError("invalid-argument", "Un empleado no puede ser su propio jefe inmediato.");
   }
 
-  await ref.update(datosPerfil);
+  try {
+    await admin.auth().updateUser(uid, { email: correo, displayName: nombre });
+  } catch (err) {
+    if (err.code === "auth/email-already-exists") {
+      throw new HttpsError("already-exists", "Ya existe otra cuenta con ese correo.");
+    }
+    throw new HttpsError("internal", `No se pudo actualizar la cuenta: ${err.message || err}`);
+  }
+
+  await ref.update({ nombre, correo, ...datosPerfil });
   return { ok: true };
 });
 

@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cinco Conecta — Informes de Gestión</title>
+<link rel="icon" href="assets/img/favicon.png">
+<link rel="stylesheet" href="assets/css/styles.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <a href="bienvenida.html" class="brand">
+        <img src="assets/img/logo.png" alt="Cinco S.A.S.">
+        <span>Cinco Conecta</span>
+      </a>
+      <nav>
+        <a href="inicio.html"><img class="nav-icono" src="assets/img/nav/inicio.jpg" alt=""> Inicio</a>
+
+        <div class="nav-group" data-grupo="experiencia">
+          <button type="button" class="nav-group-toggle">
+            <span>🙌 Experiencia</span>
+            <span class="nav-group-chevron">▾</span>
+          </button>
+          <div class="nav-group-items">
+            <a href="reconocimientos.html"><img class="nav-icono" src="assets/img/nav/reconocimientos.jpg" alt=""> Reconocimientos</a>
+            <a href="encuestas.html"><img class="nav-icono" src="assets/img/nav/encuestas.jpg" alt=""> Encuestas</a>
+            <a href="comunicados.html"><img class="nav-icono" src="assets/img/nav/comunicados.jpg" alt=""> Comunicados</a>
+          </div>
+        </div>
+
+        <div class="nav-group" data-grupo="sgi">
+          <button type="button" class="nav-group-toggle">
+            <span>✅ SGI-HSEQ</span>
+            <span class="nav-group-chevron">▾</span>
+          </button>
+          <div class="nav-group-items">
+            <a href="incidentes.html"><img class="nav-icono" src="assets/img/nav/incidentes.jpg" alt=""> Incidentes</a>
+            <a href="acciones-correctivas.html"><img class="nav-icono" src="assets/img/nav/acciones-correctivas.jpg" alt=""> Acciones Correctivas</a>
+            <a href="documentos.html"><img class="nav-icono" src="assets/img/nav/documentos.jpg" alt=""> Documentos</a>
+            <a href="auditorias.html"><img class="nav-icono" src="assets/img/nav/auditorias.jpg" alt=""> Auditorías</a>
+          </div>
+        </div>
+
+        <div class="nav-group" data-grupo="talento">
+          <button type="button" class="nav-group-toggle">
+            <span>👥 Talento Humano</span>
+            <span class="nav-group-chevron">▾</span>
+          </button>
+          <div class="nav-group-items">
+            <a href="candidatos.html" data-permiso="candidatos"><img class="nav-icono" src="assets/img/nav/candidatos.jpg" alt=""> Candidatos</a>
+            <a href="vacantes-admin.html" data-permiso="vacantes"><img class="nav-icono" src="assets/img/nav/vacantes.jpg" alt=""> Vacantes</a>
+            <a href="empleados.html" class="solo-admin"><img class="nav-icono" src="assets/img/nav/empleados.jpg" alt=""> Empleados</a>
+          </div>
+        </div>
+
+        <div class="nav-group" data-grupo="gestion">
+          <button type="button" class="nav-group-toggle">
+            <span>📁 Gestión Contratos</span>
+            <span class="nav-group-chevron">▾</span>
+          </button>
+          <div class="nav-group-items">
+            <a href="informes-gestion.html"><img class="nav-icono" src="assets/img/nav/documentos.jpg" alt=""> Informes de Gestión</a>
+          </div>
+        </div>
+      </nav>
+      <div class="spacer"></div>
+      <div class="user-box">
+        <div id="userName">-</div>
+        <a href="cambiar-password.html" class="btn claro btn-auto mt-4">🔑 Cambiar contraseña</a>
+        <button class="btn claro logout-btn" id="logoutBtn">Cerrar sesión</button>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header>
+        <h1>📁 Informes de Gestión</h1>
+      </header>
+
+      <datalist id="catalogoEstrategiasList"></datalist>
+
+      <!-- ===== Vista: listado de informes (sin ?id= en la URL) ===== -->
+      <div id="vistaListado" class="hidden">
+        <div class="card solo-informesGestion hidden" id="crearCard">
+          <button type="button" class="form-trigger">
+            <span class="form-trigger-icon">➕</span>
+            <span class="form-trigger-label">Nuevo informe de gestión</span>
+            <span class="form-trigger-chevron">▾</span>
+          </button>
+          <div class="collapsible-form"><div class="collapsible-form-inner">
+          <form id="crearForm">
+            <label for="contrato">Contrato</label>
+            <input type="text" id="contrato" placeholder="Ej. PER-2026-001" required maxlength="60">
+
+            <label for="periodo">Periodo (mes)</label>
+            <input type="month" id="periodo" required>
+
+            <label>Estrategias y responsables</label>
+            <p class="text-muted text-sm">Cada estrategia queda como una sección independiente: solo la(s) persona(s) que elijas aquí podrán editar su contenido, sin poder tocar las de los demás.</p>
+            <div id="estrategiasFilas"></div>
+            <button type="button" class="btn secondary btn-auto" id="agregarEstrategiaBtn">+ Agregar estrategia</button>
+
+            <div class="alert" id="crearAlertBox"></div>
+            <button type="submit" class="btn mt-4" id="crearBtn">Crear informe</button>
+          </form>
+          </div></div>
+        </div>
+
+        <div class="card">
+          <div class="toolbar">
+            <h2 class="m-0">Listado</h2>
+          </div>
+          <div id="listaInformes"><p class="text-muted text-center">Cargando...</p></div>
+        </div>
+      </div>
+
+      <!-- ===== Vista: detalle de un informe (con ?id=) ===== -->
+      <div id="vistaDetalle" class="hidden">
+        <div class="card">
+          <div class="toolbar">
+            <a href="informes-gestion.html" class="btn secondary btn-auto">← Volver al listado</a>
+            <button class="btn secondary btn-auto solo-informesGestion hidden" id="editarInformeToggleBtn">✏️ Editar contrato/periodo</button>
+            <button class="btn secondary btn-auto" id="pdfBtn">📄 Generar informe PDF (portada oscura)</button>
+            <button class="btn secondary btn-auto" id="pdfBtnClaro">📄 Generar informe PDF (portada clara)</button>
+            <button class="btn secondary btn-auto solo-informesGestion hidden" id="consolidarBtn">🔒 Consolidar informe</button>
+            <button class="btn secondary btn-auto solo-informesGestion hidden" id="duplicarInformeToggleBtn">📑 Duplicar como nuevo periodo</button>
+            <button class="btn secondary btn-auto solo-informesGestion hidden" id="portadaToggleBtn">🗂️ Datos de portada del PDF</button>
+            <button class="btn secondary btn-auto solo-informesGestion hidden" id="notificarToggleBtn">📧 Notificar a responsables</button>
+            <button class="btn secondary btn-auto danger solo-informesGestion hidden" id="incumplimientoToggleBtn">⚠️ Notificar incumplimientos</button>
+            <button class="btn secondary btn-auto danger solo-informesGestion hidden" id="eliminarInformeBtn">🗑️ Eliminar este informe</button>
+          </div>
+          <h2 class="m-0" id="detalleTitulo">-</h2>
+          <p class="text-muted text-sm" id="detalleSubtitulo"></p>
+          <p class="text-muted text-sm m-0 hidden" id="notificadoTexto"></p>
+          <div class="progreso-bar"><div class="progreso-fill" id="progresoFill" style="width:0%"></div></div>
+          <p class="text-muted text-sm" id="progresoTexto"></p>
+        </div>
+
+        <div class="card hidden" id="editarInformePanel">
+          <p class="text-muted text-sm m-0">Corrige el contrato o el periodo (mes) de este informe — por ejemplo, si se creó a partir de otro mes y quedó con el periodo equivocado.</p>
+          <label for="editarInformeContrato">Contrato</label>
+          <input type="text" id="editarInformeContrato" maxlength="60">
+          <label for="editarInformePeriodo">Periodo (mes)</label>
+          <input type="month" id="editarInformePeriodo">
+          <button type="button" class="btn btn-auto mt-4" id="editarInformeGuardarBtn">Guardar cambios</button>
+          <div class="alert" id="editarInformeAlertBox"></div>
+        </div>
+
+        <div class="card hidden" id="notificarPanel">
+          <p class="text-muted text-sm m-0">Envía un correo a cada responsable con la(s) sección(es) que tiene asignada(s) en este informe y la fecha límite — un solo correo por persona, aunque tenga varias secciones.</p>
+          <label for="notificarFechaLimite">Fecha y hora límite para entregar lo asignado</label>
+          <input type="datetime-local" id="notificarFechaLimite">
+          <label class="checkbox-row mt-4"><input type="checkbox" id="notificarModoPrueba"> Modo prueba — enviar solo un correo de ejemplo a gerencia.cincoltda@hotmail.com (no le llega a nadie más, no queda registrado como notificación real)</label>
+          <button type="button" class="btn btn-auto mt-4" id="notificarEnviarBtn">Enviar notificación a todos</button>
+          <div class="alert" id="notificarAlertBox"></div>
+        </div>
+
+        <div class="card hidden" id="incumplimientoPanel">
+          <p class="text-muted text-sm m-0">Envía un aviso formal a quien todavía tenga alguna sección sin completar después de vencida la fecha límite — queda copia a gerencia.cincoltda@hotmail.com y se registra la fecha de envío en cada estrategia, como constancia.</p>
+          <div id="incumplimientoLista" class="mt-4"></div>
+          <label class="checkbox-row mt-4"><input type="checkbox" id="incumplimientoModoPrueba"> Modo prueba — enviar solo un correo de ejemplo a gerencia.cincoltda@hotmail.com (no le llega a nadie más, no queda registrado)</label>
+          <button type="button" class="btn btn-auto mt-4 danger" id="incumplimientoEnviarBtn">Enviar aviso de incumplimiento</button>
+          <div class="alert" id="incumplimientoAlertBox"></div>
+        </div>
+
+        <div class="card hidden" id="portadaPanel">
+          <p class="text-muted text-sm m-0">Estos datos aparecen en la portada del PDF (contrato, objeto, cliente, supervisor, vigencia y radicado). Todos son opcionales — lo que dejes vacío simplemente no aparece.</p>
+          <label for="portadaNumeroContrato">N.º de contrato (ej. 040/2026)</label>
+          <input type="text" id="portadaNumeroContrato" maxlength="60">
+          <label for="portadaObjeto">Objeto</label>
+          <textarea id="portadaObjeto" rows="3" maxlength="600"></textarea>
+          <label for="portadaCliente">Cliente</label>
+          <input type="text" id="portadaCliente" maxlength="150">
+          <label for="portadaSupervisor">Supervisor</label>
+          <input type="text" id="portadaSupervisor" maxlength="150">
+          <div class="toolbar">
+            <div style="flex:1">
+              <label for="portadaVigenciaInicio">Vigencia — inicio</label>
+              <input type="date" id="portadaVigenciaInicio">
+            </div>
+            <div style="flex:1">
+              <label for="portadaVigenciaFin">Vigencia — fin</label>
+              <input type="date" id="portadaVigenciaFin">
+            </div>
+          </div>
+          <label for="portadaRadicado">Radicado</label>
+          <input type="text" id="portadaRadicado" maxlength="60">
+          <button type="button" class="btn btn-auto mt-4" id="portadaGuardarBtn">Guardar datos de portada</button>
+          <div class="alert" id="portadaAlertBox"></div>
+        </div>
+
+        <div class="card hidden" id="duplicarInformePanel">
+          <label for="duplicarPeriodo">Nuevo periodo (mes)</label>
+          <input type="month" id="duplicarPeriodo">
+          <p class="text-muted text-sm">Se copian todas las estrategias, subtítulos/zonas y responsables tal como están aquí, con el texto actual como punto de partida — cada responsable va a ver su sección ya con lo de este informe, lista para actualizarla en vez de empezar en blanco.</p>
+          <button type="button" class="btn btn-auto" id="duplicarInformeBtn">Duplicar</button>
+          <div class="alert" id="duplicarInformeAlertBox"></div>
+        </div>
+
+        <div class="card solo-informesGestion hidden" id="agregarEstrategiaCard">
+          <button type="button" class="form-trigger">
+            <span class="form-trigger-icon">➕</span>
+            <span class="form-trigger-label">Agregar estrategia a este informe</span>
+            <span class="form-trigger-chevron">▾</span>
+          </button>
+          <div class="collapsible-form"><div class="collapsible-form-inner">
+          <form id="agregarEstrategiaForm">
+            <label for="nuevaEstrategiaNombre">Nombre de la estrategia</label>
+            <input type="text" id="nuevaEstrategiaNombre" list="catalogoEstrategiasList" required maxlength="200">
+            <label for="nuevaEstrategiaResponsables">Responsable(s) — Ctrl/Cmd+clic para elegir varios</label>
+            <select id="nuevaEstrategiaResponsables" multiple size="5" required></select>
+            <div class="alert" id="agregarEstrategiaAlertBox"></div>
+            <button type="submit" class="btn mt-4">Agregar</button>
+          </form>
+          </div></div>
+        </div>
+
+        <div id="listaEstrategias"><p class="text-muted text-center">Cargando...</p></div>
+      </div>
+    </main>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
+  <script type="module" src="js/informes-gestion.js"></script>
+</body>
+</html>

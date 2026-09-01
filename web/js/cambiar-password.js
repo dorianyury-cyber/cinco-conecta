@@ -3,6 +3,9 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 import { httpsCallable } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-functions.js";
 import { functions, requireAuth, showAlert, clearAlert, friendlyError } from "./utils.js";
+import { agregarToggleClave } from "./clave-visible.js";
+
+["passwordActual", "passwordNueva", "passwordConfirmar"].forEach((id) => agregarToggleClave(document.getElementById(id)));
 
 const { user, perfil } = await requireAuth();
 

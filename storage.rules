@@ -10,5 +10,15 @@ service firebase.storage {
     match /{allPaths=**} {
       allow read, write: if false;
     }
+
+    // Imágenes de los bloques de contenido de "Informes de Gestión"
+    // (web/js/informes-gestion.js) — fotos/gráficas internas del informe,
+    // no datos personales como las hojas de vida de arriba. Cualquier
+    // persona autenticada del staff puede leer/escribir; el control de
+    // QUIÉN puede asociar una imagen a qué estrategia ya lo hace
+    // firestore.rules sobre el campo "contenido" de esa estrategia.
+    match /informesGestion/{informeId}/{allPaths=**} {
+      allow read, write: if request.auth != null;
+    }
   }
 }

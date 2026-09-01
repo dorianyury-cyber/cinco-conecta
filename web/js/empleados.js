@@ -164,6 +164,8 @@ function abrirModalEditar(empleadoId) {
   if (!empleado) return;
   clearAlert(editarAlertBox);
   document.getElementById("editarUid").value = empleado.id;
+  document.getElementById("editarNombre").value = empleado.nombre || "";
+  document.getElementById("editarCorreo").value = empleado.correo || "";
   document.getElementById("editarCedula").value = empleado.cedula || "";
   document.getElementById("editarTelefono").value = empleado.telefono || "";
   document.getElementById("editarCargo").value = empleado.cargo || "";
@@ -185,6 +187,8 @@ editarDatosForm.addEventListener("submit", async (e) => {
     const llamada = httpsCallable(functions, "actualizarDatosEmpleado");
     await llamada({
       uid: document.getElementById("editarUid").value,
+      nombre: document.getElementById("editarNombre").value.trim(),
+      correo: document.getElementById("editarCorreo").value.trim(),
       cedula: document.getElementById("editarCedula").value.trim(),
       telefono: document.getElementById("editarTelefono").value.trim(),
       cargo: document.getElementById("editarCargo").value.trim(),

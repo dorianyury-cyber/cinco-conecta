@@ -17,6 +17,8 @@ const {
 } = require("./src/empleados");
 const { responderEncuesta } = require("./src/encuestas");
 const { reportarIncidente, subirDocumento } = require("./src/hseq");
+const { notificarResponsablesInformeGestion } = require("./src/informesGestionNotificar");
+const { notificarIncumplimientosInformeGestion } = require("./src/informesGestionIncumplimiento");
 
 exports.enviarPostulacion = enviarPostulacion;
 exports.consultarEstado = consultarEstado;
@@ -34,3 +36,5 @@ exports.confirmarCambioPassword = confirmarCambioPassword;
 exports.responderEncuesta = responderEncuesta;
 exports.reportarIncidente = reportarIncidente;
 exports.subirDocumento = subirDocumento;
+exports.notificarResponsablesInformeGestion = notificarResponsablesInformeGestion;
+exports.notificarIncumplimientosInformeGestion = notificarIncumplimientosInformeGestion;
