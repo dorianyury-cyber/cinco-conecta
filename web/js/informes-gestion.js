@@ -2412,6 +2412,12 @@ if (informeId) {
         try { logo = await cargarImagenComoDataURL("assets/img/logo-blanco.png", "#1f2732", "PNG"); } catch (err) { /* se genera igual sin logo */ }
         dibujarPortadaNavy(docPdf, informeActual, logo);
       }
+      // El encabezado de las páginas de contenido va sobre fondo blanco sin
+      // importar qué portada se eligió — reutiliza el logo ya cargado solo
+      // si es el de texto oscuro (portada clara); si se eligió la portada
+      // navy, el logo cargado arriba trae el texto en blanco (ilegible
+      // sobre blanco), así que se carga aparte la variante oscura.
+      const logoEncabezado = portadaClara ? logo : await cargarImagenComoDataURL("assets/img/logo.png", "#ffffff", "PNG").catch(() => null);
 
       // El desarrollo detallado siempre arranca en página nueva — así el
       // índice/listas que se insertan más abajo quedan limpiamente entre
@@ -2478,7 +2484,7 @@ if (informeId) {
         dibujarIndiceCompleto(docPdf, indiceEntradas, tablasEntradas, graficosEntradas, geometria);
       }
 
-      agregarPiePagina(docPdf);
+      agregarEncabezadoPiePaginaInforme(docPdf, informeActual, logoEncabezado);
       descargarPDF(docPdf, `informe-gestion-${informeActual.contrato}-${informeActual.periodoLabel}.pdf`.toLowerCase().replace(/[^a-z0-9.]+/g, "-"));
     } catch (err) {
       alert(friendlyError(err));
@@ -2623,6 +2629,65 @@ const TEXT_MUTED_PDF = [92, 101, 112];
 function formatFechaCorta(iso) {
   if (!iso) return "";
   return new Date(`${iso}T00:00:00`).toLocaleDateString("es-CO", { day: "numeric", month: "long", year: "numeric" });
+}
+
+// Encabezado (logo + título) y pie de página (código de formato + radicado +
+// número de página) en todas las páginas de contenido, sin tocar la portada
+// (página 1) — mismo formato/código SGC (AC-FOR-002 · Versión 1) que el PDF
+// de "Informes" en Control de Contratos (Cinco SAS): es el mismo tipo de
+// documento oficial, ahora generado desde Cinco Conecta, así que debe verse
+// como el mismo informe sin importar desde cuál de los dos sistemas salió.
+function agregarEncabezadoPiePaginaInforme(doc, informe, logo) {
+  const AMBER_PDF = [254, 178, 9];
+  const anchoPagina = doc.internal.pageSize.getWidth();
+  const altoPagina = doc.internal.pageSize.getHeight();
+  const margenX = 12;
+  const totalPaginas = doc.internal.getNumberOfPages();
+  const titulo = `Informe de Gestión — ${informe.periodoLabel}`;
+
+  for (let p = 2; p <= totalPaginas; p++) {
+    doc.setPage(p);
+    doc.setDrawColor(...AMBER_PDF);
+    doc.setLineWidth(0.6);
+    doc.line(margenX, 16, anchoPagina - margenX, 16);
+
+    let anchoLogo = 0;
+    if (logo) {
+      const altoLogo = 8;
+      anchoLogo = altoLogo * (logo.ancho / logo.alto);
+      doc.addImage(logo.dataUrl, "PNG", margenX, 6, anchoLogo, altoLogo);
+    }
+
+    // El título puede ser largo — se ajusta al espacio real que queda a la
+    // derecha del logo (no una sola línea fija) partiéndolo en hasta 2
+    // líneas y, si aún así no cabe, reduciendo el tamaño de letra, para que
+    // nunca quede montado sobre el logo.
+    doc.setFont("times", "normal");
+    doc.setTextColor(...TEXT_MUTED_PDF);
+    const anchoDisponibleTitulo = anchoPagina - margenX - (margenX + anchoLogo + 4);
+    let tamanoTitulo = 8;
+    let lineasTitulo = doc.splitTextToSize(titulo, anchoDisponibleTitulo);
+    while (lineasTitulo.length > 2 && tamanoTitulo > 6) {
+      tamanoTitulo -= 0.5;
+      doc.setFontSize(tamanoTitulo);
+      lineasTitulo = doc.splitTextToSize(titulo, anchoDisponibleTitulo);
+    }
+    doc.setFontSize(tamanoTitulo);
+    if (lineasTitulo.length > 2) lineasTitulo = [lineasTitulo[0], lineasTitulo[1].replace(/.{3}$/, "...")];
+    const yInicioTitulo = lineasTitulo.length > 1 ? 8 : 11;
+    lineasTitulo.slice(0, 2).forEach((linea, i) => {
+      doc.text(linea, anchoPagina - margenX, yInicioTitulo + i * 3.6, { align: "right" });
+    });
+
+    doc.setFillColor(...GRIS_CLARO_PDF);
+    doc.rect(0, altoPagina - 14, anchoPagina, 14, "F");
+    doc.setFont("times", "normal");
+    doc.setFontSize(7.5);
+    doc.setTextColor(...TEXT_MUTED_PDF);
+    doc.text(`Código: AC-FOR-002 · Versión: 1`, margenX, altoPagina - 6);
+    doc.text(`Radicado ${informe.radicado || ""} · Página ${p} de ${totalPaginas}`, anchoPagina - margenX, altoPagina - 6, { align: "right" });
+    doc.setTextColor(0, 0, 0);
+  }
 }
 
 // Portada a página completa (fondo navy, logo, título centrado y ficha con
