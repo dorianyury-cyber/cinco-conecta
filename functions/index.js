@@ -19,6 +19,8 @@ const { responderEncuesta } = require("./src/encuestas");
 const { reportarIncidente, subirDocumento } = require("./src/hseq");
 const { notificarResponsablesInformeGestion } = require("./src/informesGestionNotificar");
 const { notificarIncumplimientosInformeGestion } = require("./src/informesGestionIncumplimiento");
+const { onStaffWriteSyncOrdenesTrabajo, backfillStaffOrdenesTrabajo } = require("./src/sincronizarStaffOrdenesTrabajo");
+const { obtenerRadicadoInformeGestion } = require("./src/informesGestionRadicado");
 
 exports.enviarPostulacion = enviarPostulacion;
 exports.consultarEstado = consultarEstado;
@@ -38,3 +40,6 @@ exports.reportarIncidente = reportarIncidente;
 exports.subirDocumento = subirDocumento;
 exports.notificarResponsablesInformeGestion = notificarResponsablesInformeGestion;
 exports.notificarIncumplimientosInformeGestion = notificarIncumplimientosInformeGestion;
+exports.onStaffWriteSyncOrdenesTrabajo = onStaffWriteSyncOrdenesTrabajo;
+exports.backfillStaffOrdenesTrabajo = backfillStaffOrdenesTrabajo;
+exports.obtenerRadicadoInformeGestion = obtenerRadicadoInformeGestion;
