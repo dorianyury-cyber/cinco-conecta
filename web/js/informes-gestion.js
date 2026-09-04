@@ -2130,6 +2130,28 @@ if (informeId) {
       }
     });
 
+    document.getElementById("obtenerRadicadoBtn").addEventListener("click", async (e) => {
+      const alertBox = document.getElementById("portadaAlertBox");
+      clearAlert(alertBox);
+      const btn = e.target;
+      btn.disabled = true;
+      const textoOriginal = btn.textContent;
+      btn.textContent = "Buscando...";
+      try {
+        const llamada = httpsCallable(functions, "obtenerRadicadoInformeGestion");
+        const { data } = await llamada({ informeId });
+        document.getElementById("portadaRadicado").value = data.radicado;
+        showAlert(alertBox, data.yaExistia
+          ? `Este informe ya tenía el radicado oficial ${data.radicado}.`
+          : `Radicado ${data.radicado} obtenido y ya quedó guardado en este informe y registrado en Control de Contratos.`, "ok");
+      } catch (err) {
+        showAlert(alertBox, friendlyError(err), "error");
+      } finally {
+        btn.disabled = false;
+        btn.textContent = textoOriginal;
+      }
+    });
+
     document.getElementById("portadaGuardarBtn").addEventListener("click", async () => {
       const alertBox = document.getElementById("portadaAlertBox");
       clearAlert(alertBox);

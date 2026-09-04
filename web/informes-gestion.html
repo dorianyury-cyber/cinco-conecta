@@ -184,7 +184,11 @@
             </div>
           </div>
           <label for="portadaRadicado">Radicado</label>
-          <input type="text" id="portadaRadicado" maxlength="60">
+          <div class="toolbar">
+            <input type="text" id="portadaRadicado" maxlength="60" style="flex:1">
+            <button type="button" class="btn secondary btn-auto" id="obtenerRadicadoBtn">🔗 Obtener de Control de Contratos</button>
+          </div>
+          <p class="text-muted text-sm m-0">El botón busca el contrato (por su código, ej. PER-2026-001) en Control de Contratos y trae el radicado oficial de informes de gestión de ese contrato — queda registrado allá también. Si el contrato no existe ahí o el código no coincide exactamente, puedes seguir escribiendo el radicado a mano.</p>
           <button type="button" class="btn btn-auto mt-4" id="portadaGuardarBtn">Guardar datos de portada</button>
           <div class="alert" id="portadaAlertBox"></div>
         </div>
