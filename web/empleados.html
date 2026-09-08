@@ -162,15 +162,21 @@
           <input type="file" id="excelInput" accept=".xlsx" class="hidden">
         </div>
         <p id="bulkProgress" class="text-muted text-sm mt-neg-8 hidden"></p>
-        <table class="tabla-fija">
+      </div>
+
+      <div class="card vista-previa-panel" id="vistaPreviaEmpleado">
+        <p class="text-muted" style="margin:0;">Cargando...</p>
+      </div>
+
+      <div class="card">
+        <table class="tabla-fija tabla-compacta tabla-seleccionable">
           <colgroup>
-            <col class="w-16">
-            <col class="w-16">
+            <col class="w-20">
+            <col class="w-20">
+            <col class="w-18">
             <col class="w-14">
-            <col class="w-10">
-            <col class="w-8">
-            <col class="w-7">
-            <col class="w-29">
+            <col class="w-14">
+            <col class="w-14">
           </colgroup>
           <thead>
             <tr>
@@ -180,11 +186,10 @@
               <th>Área</th>
               <th>Rol</th>
               <th>Estado</th>
-              <th></th>
             </tr>
           </thead>
           <tbody id="tablaEmpleados">
-            <tr><td colspan="7" class="text-muted text-center">Cargando...</td></tr>
+            <tr><td colspan="6" class="text-muted text-center">Cargando...</td></tr>
           </tbody>
         </table>
       </div>

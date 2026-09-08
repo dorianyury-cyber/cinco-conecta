@@ -117,18 +117,30 @@
             <option value="formato">Formato</option>
           </select>
         </div>
-        <table>
+      </div>
+
+      <div class="card vista-previa-panel" id="vistaPreviaDocumento">
+        <p class="text-muted" style="margin:0;">Cargando...</p>
+      </div>
+
+      <div class="card">
+        <table class="tabla-fija tabla-compacta tabla-seleccionable">
+          <colgroup>
+            <col class="w-40">
+            <col class="w-20">
+            <col class="w-10">
+            <col class="w-30">
+          </colgroup>
           <thead>
             <tr>
               <th>Título</th>
               <th>Categoría</th>
               <th>Versión</th>
               <th>Subido</th>
-              <th></th>
             </tr>
           </thead>
           <tbody id="tablaDocumentos">
-            <tr><td colspan="5" class="text-muted text-center">Cargando...</td></tr>
+            <tr><td colspan="4" class="text-muted text-center">Cargando...</td></tr>
           </tbody>
         </table>
       </div>

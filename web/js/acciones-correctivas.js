@@ -36,53 +36,127 @@ const ESTADO_BADGE = { abierta: "warn", en_progreso: "gold", cerrada: "ok" };
 const ESTADO_TEXTO = { abierta: "Abierta", en_progreso: "En progreso", cerrada: "Cerrada" };
 
 let acciones = [];
+
+function accionesVisibles() {
+  return esAdmin ? acciones : acciones.filter((a) => a.responsableUid === user.uid);
+}
+function celdaTrunc(texto, anchoPx) {
+  return `<span class="celda-trunc" style="max-width:${anchoPx}px;" title="${(texto || "").replace(/"/g, "&quot;")}">${texto || "-"}</span>`;
+}
+function escapeHtml(texto) {
+  return String(texto ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+const tabla = document.getElementById("tablaAcciones");
+
+// Fila = solo lo justo para escanear y elegir; el formulario de avance
+// (estado/evidencia) vive en el panel de vista previa de arriba, en vez de
+// abierto de una en cada tarjeta — mismo patrón que Empleados (ver
+// empleados.js).
 function render() {
-  const visibles = esAdmin ? acciones : acciones.filter((a) => a.responsableUid === user.uid);
+  const visibles = accionesVisibles();
   if (visibles.length === 0) {
-    document.getElementById("listaAcciones").innerHTML = '<p class="text-muted text-center">No hay acciones correctivas para mostrar.</p>';
+    tabla.innerHTML = '<tr><td colspan="4" class="text-muted text-center">No hay acciones correctivas para mostrar.</td></tr>';
+    accionSeleccionadaId = null;
+    pintarVistaPreviaAccion();
     return;
   }
-  document.getElementById("listaAcciones").innerHTML = visibles
-    .map((a) => {
-      const puedeEditar = esAdmin || a.responsableUid === user.uid;
-      return `
-        <div class="card">
-          <p><span class="badge ${ESTADO_BADGE[a.estado]}">${ESTADO_TEXTO[a.estado]}</span> <strong>${a.responsableNombre}</strong> · vence ${formatDate(a.fechaLimite)}</p>
-          <p>${a.descripcion}</p>
-          ${puedeEditar ? `
-            <label>Estado</label>
-            <select data-estado="${a.id}" ${esAdmin ? "" : ""}>
-              <option value="abierta" ${a.estado === "abierta" ? "selected" : ""}>Abierta</option>
-              <option value="en_progreso" ${a.estado === "en_progreso" ? "selected" : ""}>En progreso</option>
-              <option value="cerrada" ${a.estado === "cerrada" ? "selected" : ""}>Cerrada</option>
-            </select>
-            <label>Evidencia</label>
-            <textarea rows="2" data-evidencia="${a.id}">${a.evidencia || ""}</textarea>
-            <button type="button" class="btn secondary btn-auto" data-guardar="${a.id}">Guardar avance</button>
-          ` : ""}
+  if (!accionSeleccionadaId || !visibles.some((a) => a.id === accionSeleccionadaId)) {
+    accionSeleccionadaId = visibles[0].id;
+  }
+  tabla.innerHTML = visibles.map((a) => `
+    <tr data-id="${a.id}">
+      <td style="font-weight:600;">${celdaTrunc(a.responsableNombre, 150)}</td>
+      <td>${celdaTrunc(a.descripcion, 320)}</td>
+      <td>${formatDate(a.fechaLimite)}</td>
+      <td><span class="badge ${ESTADO_BADGE[a.estado]}">${ESTADO_TEXTO[a.estado]}</span></td>
+    </tr>
+  `).join("");
+  tabla.querySelectorAll("tr[data-id]").forEach((tr) => {
+    tr.addEventListener("click", () => {
+      accionSeleccionadaId = tr.getAttribute("data-id");
+      actualizarResaltadoAccion();
+      pintarVistaPreviaAccion();
+    });
+  });
+  actualizarResaltadoAccion();
+  pintarVistaPreviaAccion();
+}
+
+let accionSeleccionadaId = null;
+
+function actualizarResaltadoAccion() {
+  tabla.querySelectorAll("tr[data-id]").forEach((tr) => {
+    tr.classList.toggle("fila-fijada", tr.getAttribute("data-id") === accionSeleccionadaId);
+  });
+}
+
+const vistaPreviaEl = document.getElementById("vistaPreviaAccion");
+const VISTA_PREVIA_VACIA = '<p class="text-muted" style="margin:0;">No hay acciones correctivas para mostrar.</p>';
+
+function pintarVistaPreviaAccion() {
+  if (!vistaPreviaEl) return;
+  const a = acciones.find((x) => x.id === accionSeleccionadaId);
+  if (!a) { vistaPreviaEl.innerHTML = VISTA_PREVIA_VACIA; return; }
+
+  const puedeEditar = esAdmin || a.responsableUid === user.uid;
+  const campo = (etiqueta, valor) => `
+    <div class="vp-campo">
+      <span class="vp-etiqueta">${etiqueta}</span>
+      <span class="vp-valor">${escapeHtml(valor || "-")}</span>
+    </div>`;
+
+  vistaPreviaEl.innerHTML = `
+    <div class="vp-encabezado">
+      <span class="vp-nombre">${escapeHtml(a.descripcion)}</span>
+      <span class="badge ${ESTADO_BADGE[a.estado]}">${ESTADO_TEXTO[a.estado]}</span>
+    </div>
+    <div class="vp-grupos">
+      <div class="vp-grupo">
+        <div class="vp-grupo-titulo">Detalle</div>
+        <div class="vp-grupo-campos">
+          ${campo("Responsable", a.responsableNombre)}
+          ${campo("Vence", formatDate(a.fechaLimite))}
+          ${campo("Estado", ESTADO_TEXTO[a.estado])}
         </div>
-      `;
-    })
-    .join("");
+      </div>
+      ${a.evidencia && !puedeEditar ? `<div class="vp-grupo"><div class="vp-grupo-titulo">Evidencia</div><div class="vp-grupo-campos">${campo("Evidencia", a.evidencia)}</div></div>` : ""}
+    </div>
+    ${puedeEditar ? `
+      <div class="mt-4">
+        <label>Estado</label>
+        <select id="accionEstadoInput">
+          <option value="abierta" ${a.estado === "abierta" ? "selected" : ""}>Abierta</option>
+          <option value="en_progreso" ${a.estado === "en_progreso" ? "selected" : ""}>En progreso</option>
+          <option value="cerrada" ${a.estado === "cerrada" ? "selected" : ""}>Cerrada</option>
+        </select>
+        <label>Evidencia</label>
+        <textarea rows="2" id="accionEvidenciaInput">${a.evidencia || ""}</textarea>
+        <button type="button" class="btn secondary btn-auto mt-4" id="accionGuardarBtn">Guardar avance</button>
+      </div>
+    ` : ""}
+  `;
+
+  vistaPreviaEl.querySelector("#accionGuardarBtn")?.addEventListener("click", async (e) => {
+    const btn = e.currentTarget;
+    const estado = document.getElementById("accionEstadoInput").value;
+    const evidencia = document.getElementById("accionEvidenciaInput").value.trim();
+    btn.disabled = true;
+    try {
+      await updateDoc(doc(db, "accionesCorrectivas", a.id), { estado, evidencia });
+    } catch (err) {
+      alert(friendlyError(err));
+    } finally {
+      btn.disabled = false;
+    }
+  });
 }
 
 onSnapshot(query(collection(db, "accionesCorrectivas"), orderBy("creadoEn", "desc")), (snap) => {
   acciones = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
   render();
 }, (err) => {
-  document.getElementById("listaAcciones").innerHTML = `<p class="text-muted text-center">${friendlyError(err)}</p>`;
-});
-
-document.getElementById("listaAcciones").addEventListener("click", async (e) => {
-  const id = e.target.dataset.guardar;
-  if (!id) return;
-  const estado = document.querySelector(`[data-estado="${id}"]`).value;
-  const evidencia = document.querySelector(`[data-evidencia="${id}"]`).value.trim();
-  try {
-    await updateDoc(doc(db, "accionesCorrectivas", id), { estado, evidencia });
-  } catch (err) {
-    alert(friendlyError(err));
-  }
+  tabla.innerHTML = `<tr><td colspan="4" class="text-muted text-center">${friendlyError(err)}</td></tr>`;
 });
 
 if (esAdmin) {

@@ -1,6 +1,6 @@
 import { collection, onSnapshot } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import { httpsCallable } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-functions.js";
-import { db, functions, requireAuth, wireLogoutButton, setActiveNav, showAlert, clearAlert, friendlyError, AREAS } from "./utils.js";
+import { db, functions, requireAuth, wireLogoutButton, setActiveNav, showAlert, clearAlert, friendlyError, AREAS, formatDate } from "./utils.js";
 import { ExcelJS, descargarWorkbook, estilizarEncabezado, ajustarAnchoColumnas, leerWorkbook, mapaEncabezados, valorCelda, filasConDatos } from "./excel.js";
 
 function esperar(ms) {
@@ -23,41 +23,143 @@ const invitarBtn = document.getElementById("invitarBtn");
 
 let empleados = [];
 
+const PERMISO_LABEL = {
+  vacantes: "Publicar y editar vacantes",
+  candidatos: "Gestionar candidatos",
+  comunicados: "Publicar comunicados",
+  encuestas: "Crear encuestas",
+  incidentes: "Cerrar/editar incidentes",
+  accionesCorrectivas: "Crear/eliminar acciones correctivas",
+  documentos: "Subir documentos del SGI",
+  auditorias: "Programar auditorías",
+  informesGestion: "Coordinar informes de gestión"
+};
+
+function empleadosOrdenados() {
+  return empleados.slice().sort((a, b) => (a.nombre || "").localeCompare(b.nombre || "", "es"));
+}
+
+function celdaTrunc(texto, anchoPx) {
+  return `<span class="celda-trunc" style="max-width:${anchoPx}px;" title="${(texto || "").replace(/"/g, "&quot;")}">${texto || "-"}</span>`;
+}
+
+// Fila = solo lo justo para escanear y elegir (una sola línea, sin
+// acciones) — mismo patrón que Copropiedad Saludable (Activos/Usuarios) y
+// LBDC Neiva (Programación de discipulados): todo el detalle completo,
+// incluidas las acciones, vive en el panel de vista previa de arriba.
 function render() {
   if (empleados.length === 0) {
-    tabla.innerHTML = '<tr><td colspan="7" class="text-muted text-center">Sin empleados registrados.</td></tr>';
+    tabla.innerHTML = '<tr><td colspan="6" class="text-muted text-center">Sin empleados registrados.</td></tr>';
+    empleadoSeleccionadoId = null;
+    pintarVistaPreviaEmpleado();
     return;
   }
-  tabla.innerHTML = empleados
-    .sort((a, b) => (a.nombre || "").localeCompare(b.nombre || "", "es"))
-    .map((e) => {
-      const esUnoMismo = e.id === uid;
-      const bloqueado = e.estado !== "activo";
-      return `
-        <tr>
-          <td><b>${e.nombre || "-"}</b>${e.debeCambiarPassword ? ' <span class="badge warn text-xs">Pendiente 1er cambio de clave</span>' : ""}</td>
-          <td>${e.correo || "-"}</td>
-          <td>${e.cargo || "-"}</td>
-          <td>${AREAS[e.area] || "-"}</td>
-          <td>${e.rol === "admin" ? '<span class="badge gold">Admin</span>' : '<span class="badge muted">Empleado</span>'}${e.rol !== "admin" && e.permisos?.length ? ` <span class="badge muted text-xs">${e.permisos.length} permiso${e.permisos.length === 1 ? "" : "s"}</span>` : ""}</td>
-          <td>${!bloqueado ? '<span class="badge ok">Activo</span>' : '<span class="badge danger">Bloqueado</span>'}</td>
-          <td>
-            <div class="acciones-grid">
-              <button class="icon-btn" data-editar="${e.id}">✏️ Editar datos</button>
-              <button class="icon-btn" data-renombrar="${e.id}" data-nombre="${(e.nombre || "").replace(/"/g, "&quot;")}">✏️ Nombre</button>
-              <button class="icon-btn" data-reenviar="${e.id}">✉️ Reenviar acceso</button>
-              ${esUnoMismo ? "" : `
-                <button class="icon-btn" data-rol="${e.id}" data-rol-actual="${e.rol}">🔧 ${e.rol === "admin" ? "Quitar admin" : "Hacer admin"}</button>
-                ${e.rol === "admin" ? "" : `<button class="icon-btn" data-permisos="${e.id}">🔐 Permisos</button>`}
-                <button class="icon-btn ${bloqueado ? "" : "danger"}" data-estado="${e.id}" data-estado-actual="${e.estado}">${bloqueado ? "✅ Activar" : "🚫 Bloquear"}</button>
-                <button class="icon-btn danger" data-eliminar="${e.id}">🗑️ Eliminar</button>
-              `}
-            </div>
-          </td>
-        </tr>
-      `;
-    })
-    .join("");
+  const ordenados = empleadosOrdenados();
+  if (!empleadoSeleccionadoId || !ordenados.some((e) => e.id === empleadoSeleccionadoId)) {
+    empleadoSeleccionadoId = ordenados[0].id;
+  }
+  tabla.innerHTML = ordenados.map((e) => {
+    const bloqueado = e.estado !== "activo";
+    return `
+      <tr data-uid="${e.id}">
+        <td style="font-weight:600;">${celdaTrunc(e.nombre, 200)}</td>
+        <td>${celdaTrunc(e.correo, 200)}</td>
+        <td>${celdaTrunc(e.cargo, 170)}</td>
+        <td>${celdaTrunc(AREAS[e.area] || "-", 140)}</td>
+        <td>${e.rol === "admin" ? '<span class="badge gold">Admin</span>' : '<span class="badge muted">Empleado</span>'}</td>
+        <td>${!bloqueado ? '<span class="badge ok">Activo</span>' : '<span class="badge danger">Bloqueado</span>'}</td>
+      </tr>`;
+  }).join("");
+  tabla.querySelectorAll("tr[data-uid]").forEach((tr) => {
+    tr.addEventListener("click", () => {
+      empleadoSeleccionadoId = tr.getAttribute("data-uid");
+      actualizarResaltadoEmpleado();
+      pintarVistaPreviaEmpleado();
+    });
+  });
+  actualizarResaltadoEmpleado();
+  pintarVistaPreviaEmpleado();
+}
+
+// Clic en una fila la deja fijada en el panel — al entrar al módulo o
+// cuando la fijada ya no existe (se borró, o es el primer render) se fija
+// sola la primera de la lista, para que el panel nunca arranque vacío.
+let empleadoSeleccionadoId = null;
+
+function actualizarResaltadoEmpleado() {
+  tabla.querySelectorAll("tr[data-uid]").forEach((tr) => {
+    tr.classList.toggle("fila-fijada", tr.getAttribute("data-uid") === empleadoSeleccionadoId);
+  });
+}
+
+const vistaPreviaEl = document.getElementById("vistaPreviaEmpleado");
+const VISTA_PREVIA_VACIA = '<p class="text-muted" style="margin:0;">Sin empleados registrados.</p>';
+
+function pintarVistaPreviaEmpleado() {
+  if (!vistaPreviaEl) return;
+  const e = empleados.find((x) => x.id === empleadoSeleccionadoId);
+  if (!e) { vistaPreviaEl.innerHTML = VISTA_PREVIA_VACIA; return; }
+
+  const esUnoMismo = e.id === uid;
+  const bloqueado = e.estado !== "activo";
+  const campo = (etiqueta, valor, ancho) => `
+    <div class="vp-campo${ancho ? " vp-campo-ancho" : ""}">
+      <span class="vp-etiqueta">${etiqueta}</span>
+      <span class="vp-valor">${escapeHtml(valor || "-")}</span>
+    </div>`;
+  const grupo = (titulo, camposHtml) => `
+    <div class="vp-grupo">
+      <div class="vp-grupo-titulo">${titulo}</div>
+      <div class="vp-grupo-campos">${camposHtml}</div>
+    </div>`;
+
+  const acciones = `
+      <button class="icon-btn" data-editar="${e.id}">✏️ Editar datos</button>
+      <button class="icon-btn" data-renombrar="${e.id}" data-nombre="${(e.nombre || "").replace(/"/g, "&quot;")}">✏️ Nombre</button>
+      <button class="icon-btn" data-reenviar="${e.id}">✉️ Reenviar acceso</button>
+      ${esUnoMismo ? "" : `
+        <button class="icon-btn" data-rol="${e.id}" data-rol-actual="${e.rol}">🔧 ${e.rol === "admin" ? "Quitar admin" : "Hacer admin"}</button>
+        ${e.rol === "admin" ? "" : `<button class="icon-btn" data-permisos="${e.id}">🔐 Permisos</button>`}
+        <button class="icon-btn ${bloqueado ? "" : "danger"}" data-estado="${e.id}" data-estado-actual="${e.estado}">${bloqueado ? "✅ Activar" : "🚫 Bloquear"}</button>
+        <button class="icon-btn danger" data-eliminar="${e.id}">🗑️ Eliminar</button>
+      `}
+    `;
+
+  const permisosHtml = e.rol !== "admin" && e.permisos?.length
+    ? grupo("Permisos", campo("Además puede", e.permisos.map((p) => PERMISO_LABEL[p] || p).join(", "), true))
+    : "";
+
+  vistaPreviaEl.innerHTML = `
+    <div class="vp-encabezado">
+      <span class="vp-nombre">${escapeHtml(e.nombre || "-")}</span>
+      <div class="vp-acciones">${acciones}</div>
+    </div>
+    ${e.debeCambiarPassword ? '<div class="alert warn" style="margin:0;">Pendiente el primer cambio de clave.</div>' : ""}
+    <div class="vp-grupos">
+      ${grupo("Cuenta", `
+        ${campo("Correo", e.correo, true)}
+        ${campo("Cargo", e.cargo)}
+        ${campo("Área", AREAS[e.area])}
+        ${campo("Rol", e.rol === "admin" ? "Administrador" : "Empleado")}
+        ${campo("Estado", bloqueado ? "Bloqueado" : "Activo")}
+      `)}
+      ${grupo("Identificación", `
+        ${campo("Cédula", e.cedula)}
+        ${campo("Teléfono", e.telefono)}
+        ${campo("Fecha de nacimiento", e.fechaNacimiento ? formatDate(e.fechaNacimiento) : "")}
+      `)}
+      ${grupo("Vinculación", `
+        ${campo("Jefe inmediato", empleados.find((j) => j.id === e.jefeInmediatoUid)?.nombre)}
+        ${campo("Fecha de ingreso", e.fechaIngreso ? formatDate(e.fechaIngreso) : "")}
+        ${campo("Tipo de vinculación", TIPOS_VINCULACION[e.tipoVinculacion])}
+      `)}
+      ${permisosHtml}
+    </div>
+  `;
+}
+
+function escapeHtml(texto) {
+  return String(texto ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
 // Los selects "Jefe inmediato" (alta y edición) se repueblan cada vez que
@@ -93,7 +195,7 @@ onSnapshot(collection(db, "staff"), (snap) => {
   render();
   poblarSelectsJefe();
 }, (err) => {
-  tabla.innerHTML = `<tr><td colspan="7" class="text-muted text-center">${friendlyError(err)}</td></tr>`;
+  tabla.innerHTML = `<tr><td colspan="6" class="text-muted text-center">${friendlyError(err)}</td></tr>`;
 });
 
 form.addEventListener("submit", async (e) => {
@@ -245,9 +347,9 @@ permisosForm.addEventListener("submit", async (e) => {
 
 document.getElementById("permisosCancelarBtn").addEventListener("click", () => modalPermisosBackdrop.classList.remove("open"));
 
-// ---- Acciones de la tabla ----
+// ---- Acciones (ahora viven en el panel de vista previa, no en la fila) ----
 
-tabla.addEventListener("click", async (e) => {
+vistaPreviaEl.addEventListener("click", async (e) => {
   const btn = e.target.closest("button");
   if (!btn) return;
 

@@ -14,55 +14,125 @@ const filtroCategoria = document.getElementById("filtroCategoria");
 const CATEGORIA_TEXTO = { procedimiento: "Procedimiento", instructivo: "Instructivo", formato: "Formato" };
 
 let documentos = [];
-function render() {
+
+function documentosFiltrados() {
   const categoria = filtroCategoria.value;
-  const filtrados = categoria ? documentos.filter((d) => d.categoria === categoria) : documentos;
+  return categoria ? documentos.filter((d) => d.categoria === categoria) : documentos;
+}
+
+function celdaTrunc(texto, anchoPx) {
+  return `<span class="celda-trunc" style="max-width:${anchoPx}px;" title="${(texto || "").replace(/"/g, "&quot;")}">${texto || "-"}</span>`;
+}
+
+// Fila = solo lo justo para escanear y elegir; el detalle (con el botón de
+// descarga) vive en el panel de vista previa de arriba — mismo patrón que
+// Empleados/Vacantes (ver empleados.js).
+function render() {
+  const filtrados = documentosFiltrados();
   if (filtrados.length === 0) {
-    tabla.innerHTML = `<tr><td colspan="5" class="text-muted text-center">${documentos.length === 0 ? "Aún no hay documentos." : "Ningún documento coincide con el filtro."}</td></tr>`;
+    tabla.innerHTML = `<tr><td colspan="4" class="text-muted text-center">${documentos.length === 0 ? "Aún no hay documentos." : "Ningún documento coincide con el filtro."}</td></tr>`;
+    documentoSeleccionadoId = null;
+    pintarVistaPreviaDocumento();
     return;
   }
-  tabla.innerHTML = filtrados
-    .map((d) => `
-      <tr>
-        <td><b>${d.titulo}</b></td>
-        <td>${CATEGORIA_TEXTO[d.categoria] || d.categoria}</td>
-        <td>${d.version || "-"}</td>
-        <td>${d.creadoEn ? formatDate(d.creadoEn) : "-"} · ${d.subidoPorNombre || ""}</td>
-        <td><button class="icon-btn" data-descargar="${d.id}">⬇️ Descargar</button></td>
-      </tr>
-    `)
-    .join("");
+  if (!documentoSeleccionadoId || !filtrados.some((d) => d.id === documentoSeleccionadoId)) {
+    documentoSeleccionadoId = filtrados[0].id;
+  }
+  tabla.innerHTML = filtrados.map((d) => `
+    <tr data-id="${d.id}">
+      <td style="font-weight:600;">${celdaTrunc(d.titulo, 320)}</td>
+      <td>${CATEGORIA_TEXTO[d.categoria] || d.categoria}</td>
+      <td>${d.version || "-"}</td>
+      <td>${celdaTrunc(`${d.creadoEn ? formatDate(d.creadoEn) : "-"} · ${d.subidoPorNombre || ""}`, 220)}</td>
+    </tr>
+  `).join("");
+  tabla.querySelectorAll("tr[data-id]").forEach((tr) => {
+    tr.addEventListener("click", () => {
+      documentoSeleccionadoId = tr.getAttribute("data-id");
+      actualizarResaltadoDocumento();
+      pintarVistaPreviaDocumento();
+    });
+  });
+  actualizarResaltadoDocumento();
+  pintarVistaPreviaDocumento();
+}
+
+let documentoSeleccionadoId = null;
+
+function actualizarResaltadoDocumento() {
+  tabla.querySelectorAll("tr[data-id]").forEach((tr) => {
+    tr.classList.toggle("fila-fijada", tr.getAttribute("data-id") === documentoSeleccionadoId);
+  });
+}
+
+function escapeHtml(texto) {
+  return String(texto ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+const vistaPreviaEl = document.getElementById("vistaPreviaDocumento");
+const VISTA_PREVIA_VACIA = '<p class="text-muted" style="margin:0;">Aún no hay documentos.</p>';
+
+async function descargarDocumento(d, btn) {
+  btn.disabled = true;
+  const textoOriginal = btn.textContent;
+  btn.textContent = "Descargando...";
+  try {
+    const dataUrl = await obtenerArchivoComoDataUrl(d.archivo.path);
+    const a = document.createElement("a");
+    a.href = dataUrl;
+    a.download = d.archivo.nombre || "documento";
+    a.click();
+  } catch (err) {
+    alert(friendlyError(err));
+  } finally {
+    btn.disabled = false;
+    btn.textContent = textoOriginal;
+  }
+}
+
+function pintarVistaPreviaDocumento() {
+  if (!vistaPreviaEl) return;
+  const d = documentos.find((x) => x.id === documentoSeleccionadoId);
+  if (!d) { vistaPreviaEl.innerHTML = VISTA_PREVIA_VACIA; return; }
+
+  const campo = (etiqueta, valor) => `
+    <div class="vp-campo">
+      <span class="vp-etiqueta">${etiqueta}</span>
+      <span class="vp-valor">${escapeHtml(valor || "-")}</span>
+    </div>`;
+
+  vistaPreviaEl.innerHTML = `
+    <div class="vp-encabezado">
+      <span class="vp-nombre">${escapeHtml(d.titulo)}</span>
+      <div class="vp-acciones">
+        <button class="icon-btn" data-descargar="${d.id}">⬇️ Descargar</button>
+      </div>
+    </div>
+    <div class="vp-grupos">
+      <div class="vp-grupo">
+        <div class="vp-grupo-titulo">Documento</div>
+        <div class="vp-grupo-campos">
+          ${campo("Categoría", CATEGORIA_TEXTO[d.categoria] || d.categoria)}
+          ${campo("Versión", d.version)}
+          ${campo("Subido el", d.creadoEn ? formatDate(d.creadoEn) : "")}
+          ${campo("Subido por", d.subidoPorNombre)}
+          ${campo("Archivo", d.archivo?.nombre)}
+        </div>
+      </div>
+    </div>
+  `;
+
+  vistaPreviaEl.querySelector("[data-descargar]")?.addEventListener("click", (e) => descargarDocumento(d, e.currentTarget));
 }
 
 onSnapshot(query(collection(db, "documentos"), orderBy("creadoEn", "desc")), (snap) => {
   documentos = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
   render();
 }, (err) => {
-  tabla.innerHTML = `<tr><td colspan="5" class="text-muted text-center">${friendlyError(err)}</td></tr>`;
+  tabla.innerHTML = `<tr><td colspan="4" class="text-muted text-center">${friendlyError(err)}</td></tr>`;
 });
 
 filtroCategoria.addEventListener("change", render);
-
-tabla.addEventListener("click", async (e) => {
-  const id = e.target.dataset.descargar;
-  if (!id) return;
-  const documento = documentos.find((d) => d.id === id);
-  e.target.disabled = true;
-  const textoOriginal = e.target.textContent;
-  e.target.textContent = "Descargando...";
-  try {
-    const dataUrl = await obtenerArchivoComoDataUrl(documento.archivo.path);
-    const a = document.createElement("a");
-    a.href = dataUrl;
-    a.download = documento.archivo.nombre || "documento";
-    a.click();
-  } catch (err) {
-    alert(friendlyError(err));
-  } finally {
-    e.target.disabled = false;
-    e.target.textContent = textoOriginal;
-  }
-});
 
 function leerArchivoComoBase64(file) {
   return new Promise((resolve, reject) => {

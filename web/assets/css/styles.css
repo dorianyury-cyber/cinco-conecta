@@ -101,6 +101,7 @@ img { max-width: 100%; display: block; }
 .w-29 { width: 29%; }
 .w-30 { width: 30%; }
 .w-32 { width: 32%; }
+.w-40 { width: 40%; }
 .mt-4 { margin: 4px 0 0; }
 .checkbox-row { display: flex; align-items: center; gap: 8px; font-weight: 400; margin-top: 14px; }
 .checkbox-row input[type="checkbox"] { width: auto; }
@@ -771,6 +772,46 @@ textarea:disabled, select:disabled, textarea[readonly] { background: var(--sideb
 .icon-btn { border: none; background: none; cursor: pointer; padding: 6px 10px; border-radius: 6px; font-size: 13px; color: var(--text); }
 .icon-btn:hover { background: var(--sidebar-hover); }
 .icon-btn.danger { color: var(--danger); }
+
+/* ---- Lista + panel de detalle (mismo patrón que Copropiedad Saludable
+   "Activos"/"Usuarios" y LBDC Neiva "Programación de discipulados"): la
+   tabla queda angosta, una sola línea por fila (.tabla-compacta), sin
+   columna de acciones — todo el detalle completo, incluidas las acciones,
+   vive en el panel fijo de arriba (.vp-*). Clic en una fila la deja fijada
+   en el panel hasta hacer clic en otra; al entrar o cambiar de filtro se
+   fija sola la primera fila, para que el panel nunca arranque vacío. ---- */
+.tabla-compacta th, .tabla-compacta td { padding: 5px 10px; font-size: 12.5px; }
+.celda-trunc { display: inline-block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: bottom; max-width: 100%; }
+
+.tabla-seleccionable tbody tr { cursor: pointer; }
+.tabla-seleccionable tr.fila-fijada { background: rgba(254, 178, 9, 0.16); }
+.tabla-seleccionable tr.fila-fijada:hover { background: rgba(254, 178, 9, 0.24); }
+
+.vista-previa-panel { display: flex; flex-direction: column; gap: 10px; }
+.vista-previa-panel .vp-encabezado { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
+.vista-previa-panel .vp-nombre { font-size: 16px; font-weight: 800; color: var(--text); }
+.vista-previa-panel .vp-acciones { display: flex; flex-wrap: wrap; gap: 8px; }
+.vista-previa-panel .vp-grupos { display: flex; flex-wrap: wrap; gap: 8px; }
+.vista-previa-panel .vp-grupo { flex: 1 1 200px; min-width: 180px; padding: 7px 10px 8px; border-radius: 8px; background: var(--sidebar-bg); }
+.vista-previa-panel .vp-grupo-titulo { font-size: 10.5px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.4px; color: var(--text-muted); border-bottom: 1px solid var(--border); padding-bottom: 4px; margin-bottom: 6px; }
+/* Filas apiladas (no grid de 2 columnas): un grupo con número impar de
+   campos (ej. Identificación con Cédula/Teléfono/Fecha de nacimiento)
+   dejaba un hueco vacío en la segunda columna de la última fila — apilar
+   en una sola columna, con una línea divisoria entre campos, evita ese
+   hueco sin importar cuántos campos tenga cada grupo. */
+.vista-previa-panel .vp-grupo-campos { display: flex; flex-direction: column; }
+.vista-previa-panel .vp-campo { min-width: 0; padding: 5px 0; border-bottom: 1px solid var(--border); }
+.vista-previa-panel .vp-campo:last-child { border-bottom: none; padding-bottom: 0; }
+.vista-previa-panel .vp-campo:first-child { padding-top: 0; }
+.vista-previa-panel .vp-etiqueta { display: block; font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px; color: var(--text-muted); }
+/* Viñeta colgante: padding-left + ::before en vez de "• " como texto —
+   así, si el valor es largo y pasa a una segunda línea, esa línea queda
+   alineada con el texto de la primera (no debajo de la viñeta). Color
+   ámbar (no var(--cinco-navy), que en modo oscuro queda casi ilegible
+   sobre el fondo oscuro de la tarjeta — este acento sí está definido
+   igual en ambos modos, ver .badge.gold). */
+.vista-previa-panel .vp-valor { display: block; position: relative; padding-left: 13px; font-size: 12.5px; font-weight: 700; color: var(--cinco-amber-dark); white-space: normal; word-break: break-word; }
+.vista-previa-panel .vp-valor::before { content: "•"; position: absolute; left: 0; top: 0; color: var(--cinco-amber-dark); }
 
 /* ---- tablero de candidatos por etapa (kanban simple con select) ---- */
 .kanban {

@@ -106,7 +106,32 @@
           <h2 class="m-0">Listado</h2>
           <button class="btn secondary btn-auto" id="exportarBtn">📊 Exportar a Excel</button>
         </div>
-        <div id="listaAcciones"><p class="text-muted text-center">Cargando...</p></div>
+      </div>
+
+      <div class="card vista-previa-panel" id="vistaPreviaAccion">
+        <p class="text-muted" style="margin:0;">Cargando...</p>
+      </div>
+
+      <div class="card">
+        <table class="tabla-fija tabla-compacta tabla-seleccionable">
+          <colgroup>
+            <col class="w-20">
+            <col class="w-40">
+            <col class="w-20">
+            <col class="w-20">
+          </colgroup>
+          <thead>
+            <tr>
+              <th>Responsable</th>
+              <th>Descripción</th>
+              <th>Vence</th>
+              <th>Estado</th>
+            </tr>
+          </thead>
+          <tbody id="tablaAcciones">
+            <tr><td colspan="4" class="text-muted text-center">Cargando...</td></tr>
+          </tbody>
+        </table>
       </div>
     </main>
   </div>

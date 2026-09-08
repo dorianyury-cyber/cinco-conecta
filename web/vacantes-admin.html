@@ -81,18 +81,30 @@
         <div class="toolbar">
           <button class="btn btn-auto brand" id="nuevaVacanteBtn">+ Nueva vacante</button>
         </div>
-        <table>
+      </div>
+
+      <div class="card vista-previa-panel" id="vistaPreviaVacante">
+        <p class="text-muted" style="margin:0;">Cargando...</p>
+      </div>
+
+      <div class="card">
+        <table class="tabla-fija tabla-compacta tabla-seleccionable">
+          <colgroup>
+            <col class="w-40">
+            <col class="w-20">
+            <col class="w-20">
+            <col class="w-20">
+          </colgroup>
           <thead>
             <tr>
               <th>Título</th>
               <th>Estado</th>
               <th>Publicada</th>
               <th>Candidatos</th>
-              <th></th>
             </tr>
           </thead>
           <tbody id="tablaVacantes">
-            <tr><td colspan="5" class="text-muted text-center">Cargando...</td></tr>
+            <tr><td colspan="4" class="text-muted text-center">Cargando...</td></tr>
           </tbody>
         </table>
       </div>

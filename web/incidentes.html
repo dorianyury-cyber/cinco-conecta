@@ -124,7 +124,36 @@
           <h2 class="m-0">Listado</h2>
           <button class="btn secondary btn-auto" id="generarInformeBtn">📄 Generar informe PDF</button>
         </div>
-        <div id="listaIncidentes"><p class="text-muted text-center">Cargando...</p></div>
+      </div>
+
+      <div class="card vista-previa-panel" id="vistaPreviaIncidente">
+        <p class="text-muted" style="margin:0;">Cargando...</p>
+      </div>
+
+      <div class="card">
+        <table class="tabla-fija tabla-compacta tabla-seleccionable">
+          <colgroup>
+            <col class="w-10">
+            <col class="w-30">
+            <col class="w-16">
+            <col class="w-14">
+            <col class="w-14">
+            <col class="w-16">
+          </colgroup>
+          <thead>
+            <tr>
+              <th>Tipo</th>
+              <th>Título</th>
+              <th>Lugar</th>
+              <th>Fecha</th>
+              <th>Gravedad</th>
+              <th>Estado</th>
+            </tr>
+          </thead>
+          <tbody id="tablaIncidentes">
+            <tr><td colspan="6" class="text-muted text-center">Cargando...</td></tr>
+          </tbody>
+        </table>
       </div>
     </main>
   </div>
