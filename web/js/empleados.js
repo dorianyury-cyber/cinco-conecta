@@ -39,8 +39,13 @@ function empleadosOrdenados() {
   return empleados.slice().sort((a, b) => (a.nombre || "").localeCompare(b.nombre || "", "es"));
 }
 
-function celdaTrunc(texto, anchoPx) {
-  return `<span class="celda-trunc" style="max-width:${anchoPx}px;" title="${(texto || "").replace(/"/g, "&quot;")}">${texto || "-"}</span>`;
+// Sin ancho en píxeles a propósito: .celda-trunc ya trae max-width:100% en
+// styles.css, relativo a la celda real (fijada por el <colgroup> en % de
+// empleados.html) — un valor fijo en px aquí se desalinea del ancho real de
+// la columna según el tamaño de pantalla y el texto se monta sobre la
+// columna vecina en vez de truncarse.
+function celdaTrunc(texto) {
+  return `<span class="celda-trunc" title="${(texto || "").replace(/"/g, "&quot;")}">${texto || "-"}</span>`;
 }
 
 // Fila = solo lo justo para escanear y elegir (una sola línea, sin
@@ -62,10 +67,10 @@ function render() {
     const bloqueado = e.estado !== "activo";
     return `
       <tr data-uid="${e.id}">
-        <td style="font-weight:600;">${celdaTrunc(e.nombre, 200)}</td>
-        <td>${celdaTrunc(e.correo, 200)}</td>
-        <td>${celdaTrunc(e.cargo, 170)}</td>
-        <td>${celdaTrunc(AREAS[e.area] || "-", 140)}</td>
+        <td style="font-weight:600;">${celdaTrunc(e.nombre)}</td>
+        <td>${celdaTrunc(e.correo)}</td>
+        <td>${celdaTrunc(e.cargo)}</td>
+        <td>${celdaTrunc(AREAS[e.area] || "-")}</td>
         <td>${e.rol === "admin" ? '<span class="badge gold">Admin</span>' : '<span class="badge muted">Empleado</span>'}</td>
         <td>${!bloqueado ? '<span class="badge ok">Activo</span>' : '<span class="badge danger">Bloqueado</span>'}</td>
       </tr>`;
