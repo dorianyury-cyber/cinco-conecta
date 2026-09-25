@@ -74,6 +74,13 @@ service cloud.firestore {
       }
     }
 
+    // Borradores de encuesta (guardados sin publicar): solo quien administra
+    // encuestas los ve — por eso NO viven en /encuestas, que lee cualquier
+    // empleado. Al publicar se crea la encuesta y se borra el borrador.
+    match /encuestasBorradores/{id} {
+      allow read, write: if tienePermiso('encuestas');
+    }
+
     match /comunicados/{id} {
       allow read: if isEmpleado();
       allow write: if tienePermiso('comunicados');

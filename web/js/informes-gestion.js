@@ -1665,6 +1665,9 @@ if (informeId) {
           <span class="collapsible-chevron">▾</span>
         </div>
         <div class="collapsible-form"><div class="collapsible-form-inner">
+          <div class="toolbar">
+            <button type="button" class="control-btn-mini" data-preview="${e.id}">👁️ Vista previa</button>
+          </div>
           ${panelesCoordinador(e)}
           <p class="text-muted text-sm m-0">Esta estrategia se reporta por subtítulos/zonas — cada una la edita su propio responsable, justo debajo. ${esCoordinador ? "Como coordinador, puedes agregar aquí un título/párrafo/tabla/imagen que introduzca el grupo." : ""}</p>
           ${esCoordinador ? `
@@ -1674,6 +1677,7 @@ if (informeId) {
             </div>
           ` : ""}
           <div class="toolbar">
+            <button type="button" class="control-btn-mini" data-preview="${e.id}">👁️ Vista previa</button>
             <button type="button" class="control-btn-mini" data-toggle-card="${e.id}">🔼 Cerrar esta sección</button>
           </div>
         </div></div>
@@ -1703,6 +1707,9 @@ if (informeId) {
       </div>
       ${mensajeCandado}
       <div class="collapsible-form"><div class="collapsible-form-inner">
+        <div class="toolbar">
+          <button type="button" class="control-btn-mini" data-preview="${e.id}">👁️ Vista previa</button>
+        </div>
         ${panelesCoordinador(e)}
         <div class="alert warn hidden" data-conflicto="${e.id}"></div>
         ${estrategiasConCambiosSinGuardar.has(e.id) ? `<div class="alert warn">⚠️ Esta sección tiene cambios sin guardar de un momento anterior que no se sincronizaron con el servidor — revisa el contenido de abajo y haz clic en "Guardar avance" para no perderlos.</div>` : ""}
@@ -1728,6 +1735,7 @@ if (informeId) {
           </div>
         ` : ""}
         <div class="toolbar">
+          <button type="button" class="control-btn-mini" data-preview="${e.id}">👁️ Vista previa</button>
           <button type="button" class="control-btn-mini" data-toggle-card="${e.id}">🔼 Cerrar esta sección</button>
         </div>
       </div></div>
@@ -1888,7 +1896,60 @@ if (informeId) {
     }
   }
 
+  const previewBackdrop = document.getElementById("previewBackdrop");
+  const previewTitulo = document.getElementById("previewTitulo");
+  const previewContenido = document.getElementById("previewContenido");
+  let previewBlobUrl = null;
+  // Genera el PDF real de UNA estrategia (no todo el informe) y lo muestra
+  // embebido en un <iframe> — a diferencia de bloquesASoloLecturaHTML (que
+  // solo aproxima el contenido en HTML), esto corre el mismo dibujo que
+  // usa "Generar informe PDF" (agregarSeccionEstrategia + dibujarXBloque),
+  // así que la paginación, el ajuste de imágenes y el espacio en blanco que
+  // se ven acá son EXACTAMENTE los que saldrían en el PDF final — sirve
+  // para ajustar el tamaño de una imagen o el largo de un párrafo viendo de
+  // una si sobra/falta espacio en la página, sin generar el informe
+  // completo ni tener que guardar primero.
+  async function abrirVistaPrevia(estrategiaId) {
+    const est = estrategiasActuales.find((x) => x.id === estrategiaId);
+    if (!est) return;
+    previewTitulo.textContent = `👁️ Vista previa del PDF — ${est.nombre}`;
+    previewContenido.innerHTML = '<p class="text-muted text-center">Generando vista previa...</p>';
+    previewBackdrop.classList.add("open");
+    try {
+      // Se previsualiza el borrador local (lo escrito pero aún sin
+      // guardar, imágenes recién elegidas incluidas) si existe, para que
+      // la persona vea el efecto de un cambio sin "Guardar avance" antes.
+      const bloques = borradorContenido.get(estrategiaId) || contenidoABloques(est.contenido);
+      // Arranca la numeración de título/tabla/figura en el mismo punto en
+      // que le tocaría dentro del informe completo (igual que el numeral
+      // de referencia junto a cada bloque en el editor) — así "Tabla 4."
+      // en esta vista previa es el mismo número que tendría en el PDF
+      // final, no siempre "Tabla 1." como si la estrategia estuviera sola.
+      const inicio = calcularInicioNumeracionPorEstrategia(ordenVisual()).get(estrategiaId)
+        || { contadoresTitulo: [0, 0, 0, 0], contadorTabla: 0, contadorImagen: 0 };
+      const tracking = {
+        indiceEntradas: [], tablasEntradas: [], graficosEntradas: [],
+        contadoresTitulo: inicio.contadoresTitulo.slice(),
+        contadorTabla: { n: inicio.contadorTabla },
+        contadorImagen: { n: inicio.contadorImagen }
+      };
+      const docPdf = crearDocumentoPDF("portrait");
+      await agregarSeccionEstrategia(docPdf, 20, "", bloques, tracking, esEncabezado(estrategiaId));
+      agregarPiePagina(docPdf);
+      if (previewBlobUrl) URL.revokeObjectURL(previewBlobUrl);
+      previewBlobUrl = docPdf.output("bloburl");
+      previewContenido.innerHTML = `<iframe src="${previewBlobUrl}" style="width:100%;height:75vh;border:1px solid var(--border);border-radius:6px;"></iframe>`;
+    } catch (err) {
+      previewContenido.innerHTML = `<p class="text-muted text-center">${friendlyError(err)}</p>`;
+    }
+  }
+  document.getElementById("previewCerrarBtn").addEventListener("click", () => previewBackdrop.classList.remove("open"));
+  previewBackdrop.addEventListener("click", (e) => { if (e.target === previewBackdrop) previewBackdrop.classList.remove("open"); });
+
   listaEstrategiasEl.addEventListener("click", async (e) => {
+    const previewId = e.target.closest("[data-preview]")?.dataset.preview;
+    if (previewId) { abrirVistaPrevia(previewId); return; }
+
     const toggleCardId = e.target.closest("[data-toggle-card]")?.dataset.toggleCard;
     if (toggleCardId) {
       const el = listaEstrategiasEl.querySelector(`[data-id="${toggleCardId}"]`);
@@ -3230,7 +3291,13 @@ async function dibujarImagenBloque(doc, y, bloque, numero, onTitulo) {
   const anchoUtil = anchoPagina - margenX * 2;
 
   try {
-    const img = await cargarImagenComoDataURL(bloque.url, "#ffffff", "JPEG");
+    // previewUrl (si existe) es una imagen todavía sin subir a Storage —
+    // ya viene como data URL local (ver redimensionarImagen), así que
+    // cargarImagenComoDataURL la usa directo sin pasar por el callable de
+    // Storage. Se prefiere sobre bloque.url para que la vista previa del
+    // PDF (generarVistaPreviaPDF) refleje una imagen recién elegida aunque
+    // todavía no se haya guardado la estrategia.
+    const img = await cargarImagenComoDataURL(bloque.previewUrl || bloque.url, "#ffffff", "JPEG");
 
     // El nombre de la imagen y la imagen misma deben quedar en la misma
     // página: se calcula el tamaño real de la imagen ANTES de decidir el
@@ -3487,7 +3554,7 @@ async function agregarSeccionEstrategia(doc, y, titulo, bloques, tracking, esEnc
         if (tracking && bloque.titulo) tracking.tablasEntradas.push({ texto: `Tabla ${numeroTabla}. ${bloque.titulo}`, pagina });
       });
     } else if (bloque.tipo === "imagen") {
-      if (!bloque.url) continue;
+      if (!bloque.url && !bloque.previewUrl) continue;
       const numeroImagen = bloque.nombre ? ++tracking.contadorImagen.n : null;
       y = await dibujarImagenBloque(doc, y, bloque, numeroImagen, (pagina) => {
         if (tracking && bloque.nombre) tracking.graficosEntradas.push({ texto: `Figura ${numeroImagen}. ${bloque.nombre}`, pagina });

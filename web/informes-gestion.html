@@ -224,6 +224,17 @@
     </main>
   </div>
 
+  <div class="modal-backdrop" id="previewBackdrop">
+    <div class="modal modal-wide" style="max-width:900px;width:95vw;">
+      <div class="toolbar">
+        <h2 class="m-0" id="previewTitulo">Vista previa</h2>
+        <button type="button" class="btn secondary btn-auto" id="previewCerrarBtn">Cerrar</button>
+      </div>
+      <p class="text-muted text-sm m-0">Así se vería esta sección al generar el informe en PDF — la paginación real, con la numeración de título/tabla/figura que le corresponde dentro de todo el informe.</p>
+      <div id="previewContenido" class="mt-4"></div>
+    </div>
+  </div>
+
   <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
   <script type="module" src="js/informes-gestion.js"></script>

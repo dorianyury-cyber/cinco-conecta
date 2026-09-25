@@ -80,19 +80,30 @@
       <div class="card solo-admin hidden" id="crearEncuestaCard">
         <button type="button" class="form-trigger">
           <span class="form-trigger-icon">📊</span>
-          <span class="form-trigger-label">Nueva encuesta</span>
+          <span class="form-trigger-label" id="editorTitulo">Nueva encuesta</span>
           <span class="form-trigger-chevron">▾</span>
         </button>
         <div class="collapsible-form"><div class="collapsible-form-inner">
-        <form id="crearEncuestaForm">
+        <div id="borradoresLista"></div>
+        <div class="alert" id="editorAviso"></div>
+        <form id="crearEncuestaForm" novalidate>
           <label for="tituloEncuesta">Título</label>
           <input type="text" id="tituloEncuesta" required maxlength="150">
 
-          <label for="preguntasEncuesta">Preguntas (una por línea, máximo 3 — se responden en escala de 1 a 5)</label>
-          <textarea id="preguntasEncuesta" rows="3" required placeholder="¿Qué tan satisfecho estás con...?"></textarea>
+          <label for="descripcionEncuesta">Descripción (opcional)</label>
+          <textarea id="descripcionEncuesta" rows="3" placeholder="Explica el propósito de la encuesta"></textarea>
+
+          <label>Preguntas</label>
+          <div id="preguntasBuilder"></div>
 
           <div class="alert" id="crearAlertBox"></div>
-          <button type="submit" class="btn" id="crearEncuestaBtn">Publicar encuesta</button>
+          <div class="editor-acciones">
+            <button type="button" class="btn secondary btn-auto" id="vistaPreviaBtn">Vista previa</button>
+            <button type="button" class="btn secondary btn-auto" id="guardarBorradorBtn">Guardar borrador</button>
+            <button type="submit" class="btn btn-auto" id="crearEncuestaBtn">Publicar encuesta</button>
+            <button type="button" class="btn secondary btn-auto hidden" id="cancelarEdicionBtn">Cancelar edición</button>
+          </div>
+          <p class="text-muted text-sm" id="publicarNota"></p>
         </form>
         </div></div>
       </div>
@@ -104,6 +115,16 @@
         <div id="historialEncuestas"><p class="text-muted">Cargando...</p></div>
       </div>
     </main>
+  </div>
+
+  <div class="modal-backdrop" id="previewBackdrop">
+    <div class="modal modal-wide">
+      <h2>Vista previa de la encuesta</h2>
+      <p class="text-muted aviso-vista-previa">Así verán la encuesta los trabajadores. Puedes probar cada pregunta; nada se guarda ni se envía.</p>
+      <label class="checkbox-row"><input type="checkbox" id="previewCelular"> Ver como celular</label>
+      <div id="previewContenido"></div>
+      <button type="button" class="btn secondary" id="cerrarPreviewBtn">Cerrar vista previa</button>
+    </div>
   </div>
 
   <script type="module" src="js/encuestas.js"></script>
