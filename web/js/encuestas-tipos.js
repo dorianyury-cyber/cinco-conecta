@@ -35,7 +35,6 @@ export const TIPO_ETIQUETA = Object.fromEntries(TIPOS.map((t) => [t.valor, t.eti
 export const TIPO_ICONO = Object.fromEntries(TIPOS.map((t) => [t.valor, t.icono]));
 
 export const LIMITES = {
-  preguntas: 30,
   opciones: 30,
   filas: 20,
   columnas: 10,

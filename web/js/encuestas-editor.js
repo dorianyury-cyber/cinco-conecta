@@ -205,15 +205,8 @@ export function crearEditor(host, { alCambiar = () => {}, confirmarCambioTipo = 
   // eliminar otras tarjetas.
   let expandidoId = preguntas[0].id;
 
-  // El tope LIMITES.preguntas aplica solo a preguntas reales (por el Excel
-  // de resultados, una columna por pregunta) — los encabezados son solo
-  // texto de sección, sin fila/columna propia en ningún reporte, así que su
-  // cantidad queda sin límite.
-  const numPreguntas = () => preguntas.filter((q) => !esEncabezado(q.tipo)).length;
-
   function render(enfocar) {
     let numPregunta = 0;
-    const topePreguntas = numPreguntas() >= LIMITES.preguntas;
     host.innerHTML = preguntas.map((q, i) => {
       const expandido = q.id === expandidoId;
       if (esEncabezado(q.tipo)) return htmlEncabezado(q, i, preguntas.length, expandido);
@@ -221,7 +214,7 @@ export function crearEditor(host, { alCambiar = () => {}, confirmarCambioTipo = 
       return htmlPregunta(q, i, preguntas.length, numPregunta, expandido);
     }).join("")
       + `<div class="agregar-bloque">
-          <button type="button" class="btn secondary btn-auto agregar-pregunta" data-accion="agregar-pregunta" ${topePreguntas ? "disabled" : ""}>+ Agregar pregunta</button>
+          <button type="button" class="btn secondary btn-auto agregar-pregunta" data-accion="agregar-pregunta">+ Agregar pregunta</button>
           <button type="button" class="btn secondary btn-auto agregar-encabezado" data-accion="agregar-encabezado">+ Agregar encabezado</button>
         </div>`;
     host.querySelectorAll(".pregunta-descripcion, .encabezado-descripcion").forEach(ajustarAlto);
@@ -391,7 +384,6 @@ export function crearEditor(host, { alCambiar = () => {}, confirmarCambioTipo = 
       if (expandidoId === q.id) expandidoId = null;
       render();
     } else if (accion === "duplicar-pregunta") {
-      if (numPreguntas() >= LIMITES.preguntas) return;
       const copia = JSON.parse(JSON.stringify(q));
       copia.id = nuevoId();
       delete copia.origen;
