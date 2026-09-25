@@ -198,17 +198,18 @@ function htmlEncabezado(q, i, total, expandido) {
  */
 export function crearEditor(host, { alCambiar = () => {}, confirmarCambioTipo = () => true } = {}) {
   let preguntas = [preguntaNueva()];
-  // Tarjetas expandidas (con el editor completo a la vista) — el resto
-  // queda colapsada mostrando solo su título, para poder escanear muchas
-  // preguntas de un vistazo. Por id (no por índice): así sobrevive a mover,
-  // duplicar o eliminar otras tarjetas.
-  let expandidoIds = new Set([preguntas[0].id]);
+  // Solo UNA tarjeta expandida (con el editor completo a la vista) a la
+  // vez — el resto queda colapsada mostrando solo su título, como en Google
+  // Forms: al abrir una se cierran las demás solas, sin esperar a recargar
+  // la encuesta. Por id (no por índice): así sobrevive a mover, duplicar o
+  // eliminar otras tarjetas.
+  let expandidoId = preguntas[0].id;
 
   function render(enfocar) {
     let numPregunta = 0;
     const tope = preguntas.length >= LIMITES.preguntas;
     host.innerHTML = preguntas.map((q, i) => {
-      const expandido = expandidoIds.has(q.id);
+      const expandido = q.id === expandidoId;
       if (esEncabezado(q.tipo)) return htmlEncabezado(q, i, preguntas.length, expandido);
       numPregunta++;
       return htmlPregunta(q, i, preguntas.length, numPregunta, expandido);
@@ -277,10 +278,7 @@ export function crearEditor(host, { alCambiar = () => {}, confirmarCambioTipo = 
         // cambiarTipo puede darle un id nuevo (cambio de "familia" de
         // respuesta) — sin esto la tarjeta se vería colapsar sola a mitad
         // de la edición.
-        if (q.id !== idAntes && expandidoIds.has(idAntes)) {
-          expandidoIds.delete(idAntes);
-          expandidoIds.add(q.id);
-        }
+        if (q.id !== idAntes && expandidoId === idAntes) expandidoId = q.id;
         render(selCampo(i, "tipo"));
         break;
       }
@@ -328,7 +326,7 @@ export function crearEditor(host, { alCambiar = () => {}, confirmarCambioTipo = 
 
     if (accion === "agregar-pregunta") {
       const nueva = preguntaNueva();
-      expandidoIds.add(nueva.id);
+      expandidoId = nueva.id;
       preguntas.push(nueva);
       render(`[data-i="${preguntas.length - 1}"] .pregunta-texto`);
       host.querySelector(`[data-i="${preguntas.length - 1}"]`)?.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -338,7 +336,7 @@ export function crearEditor(host, { alCambiar = () => {}, confirmarCambioTipo = 
 
     if (accion === "agregar-encabezado") {
       const nuevo = encabezadoNuevo();
-      expandidoIds.add(nuevo.id);
+      expandidoId = nuevo.id;
       preguntas.push(nuevo);
       render(`[data-i="${preguntas.length - 1}"] .encabezado-titulo`);
       host.querySelector(`[data-i="${preguntas.length - 1}"]`)?.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -374,8 +372,8 @@ export function crearEditor(host, { alCambiar = () => {}, confirmarCambioTipo = 
     }
 
     if (accion === "expandir") {
-      const expandiendo = !expandidoIds.has(q.id);
-      if (expandiendo) expandidoIds.add(q.id); else expandidoIds.delete(q.id);
+      const expandiendo = expandidoId !== q.id;
+      expandidoId = expandiendo ? q.id : null;
       render(expandiendo ? `[data-i="${i}"] .pregunta-texto, [data-i="${i}"] .encabezado-titulo` : undefined);
       return;
     }
@@ -384,14 +382,14 @@ export function crearEditor(host, { alCambiar = () => {}, confirmarCambioTipo = 
       if (preguntas.length <= 1) return;
       if (!confirm(esEncabezado(q.tipo) ? "¿Eliminar este encabezado?" : "¿Eliminar esta pregunta?")) return;
       preguntas.splice(i, 1);
-      expandidoIds.delete(q.id);
+      if (expandidoId === q.id) expandidoId = null;
       render();
     } else if (accion === "duplicar-pregunta") {
       if (preguntas.length >= LIMITES.preguntas) return;
       const copia = JSON.parse(JSON.stringify(q));
       copia.id = nuevoId();
       delete copia.origen;
-      expandidoIds.add(copia.id);
+      expandidoId = copia.id;
       preguntas.splice(i + 1, 0, copia);
       render(`[data-i="${i + 1}"] .pregunta-texto`);
     } else if (accion === "subir-pregunta" && mover(preguntas, i, i - 1)) {
@@ -427,7 +425,7 @@ export function crearEditor(host, { alCambiar = () => {}, confirmarCambioTipo = 
       if (preguntas.length === 0) preguntas = [preguntaNueva()];
       // Todas colapsadas al cargar una encuesta existente: con varias
       // preguntas, ver solo los títulos de una vez es justo el punto.
-      expandidoIds = preguntas.length === 1 ? new Set([preguntas[0].id]) : new Set();
+      expandidoId = preguntas.length === 1 ? preguntas[0].id : null;
       render();
     },
     /** Estado actual del editor (formato de edición; usa serializarPreguntas para guardar). */
@@ -436,7 +434,7 @@ export function crearEditor(host, { alCambiar = () => {}, confirmarCambioTipo = 
     },
     reiniciar() {
       preguntas = [preguntaNueva()];
-      expandidoIds = new Set([preguntas[0].id]);
+      expandidoId = preguntas[0].id;
       render();
     }
   };
