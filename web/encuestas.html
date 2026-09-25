@@ -112,7 +112,28 @@
 
       <div class="card">
         <h2>Encuestas anteriores</h2>
-        <div id="historialEncuestas"><p class="text-muted">Cargando...</p></div>
+
+        <div class="card vista-previa-panel" id="vistaPreviaEncuesta">
+          <p class="text-muted" style="margin:0;">Cargando...</p>
+        </div>
+
+        <table class="tabla-fija tabla-compacta tabla-seleccionable">
+          <colgroup>
+            <col class="w-60">
+            <col class="w-20">
+            <col class="w-20">
+          </colgroup>
+          <thead>
+            <tr>
+              <th>Título</th>
+              <th>Cerrada el</th>
+              <th>Preguntas</th>
+            </tr>
+          </thead>
+          <tbody id="historialEncuestas">
+            <tr><td colspan="3" class="text-muted text-center">Cargando...</td></tr>
+          </tbody>
+        </table>
       </div>
     </main>
   </div>

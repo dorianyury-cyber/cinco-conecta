@@ -17,7 +17,14 @@ const esAdmin = tienePermiso(perfil, "encuestas");
 if (esAdmin) document.getElementById("crearEncuestaCard").classList.remove("hidden");
 
 const activaEl = document.getElementById("encuestaActivaContenedor");
-const historialEl = document.getElementById("historialEncuestas");
+const historialTabla = document.getElementById("historialEncuestas");
+
+// Sin ancho en píxeles a propósito: .celda-trunc ya trae max-width:100% en
+// styles.css, relativo a la celda real (fijada por el <colgroup> en % de
+// encuestas.html) — mismo helper que empleados.js.
+function celdaTrunc(texto) {
+  return `<span class="celda-trunc" title="${(texto || "").replace(/"/g, "&quot;")}">${texto || "-"}</span>`;
+}
 
 let encuestas = [];
 
@@ -127,8 +134,15 @@ async function renderActiva({ forzar = false } = {}) {
       <button type="button" class="btn secondary btn-auto btn-sm" id="editarActivaBtn">Editar encuesta</button>
       <button type="button" class="btn secondary btn-auto btn-sm" id="resultadosActivaBtn" data-texto-abrir="Ver resultados parciales">Ver resultados parciales</button>
       <button type="button" class="btn secondary btn-auto btn-sm" id="exportarActivaBtn">Exportar a Excel</button>
+      <button type="button" class="btn secondary btn-auto btn-sm" id="notificarToggleBtn">📧 Notificar a todo el personal</button>
     </div>
     <div id="resultadosActiva" class="hidden"></div>
+    ${activa.notificadoEn ? `<p class="text-muted text-sm">📧 Notificado por ${esc(activa.notificadoPorNombre || "-")} · ${formatDate(activa.notificadoEn)}</p>` : ""}
+    <div class="card hidden" id="notificarPanel">
+      <label class="checkbox-row"><input type="checkbox" id="notificarModoPrueba"> Modo prueba — enviar solo un correo de ejemplo a gerencia.cincoltda@hotmail.com (no le llega a nadie más, no queda registrado como notificación real)</label>
+      <button type="button" class="btn btn-auto mt-4" id="notificarEnviarBtn">Enviar notificación</button>
+      <div class="alert" id="notificarAlertBox"></div>
+    </div>
     <hr class="divider">
     <label for="planAccionInput">Cerrar esta encuesta y publicar el plan de acción</label>
     <textarea id="planAccionInput" rows="3" placeholder="Con base en sus respuestas, vamos a..."></textarea>
@@ -196,6 +210,31 @@ async function renderActiva({ forzar = false } = {}) {
     resultadosBtn.addEventListener("click", () => alternarResultados(activa, document.getElementById("resultadosActiva"), resultadosBtn));
     const exportarBtn = document.getElementById("exportarActivaBtn");
     exportarBtn.addEventListener("click", () => conBoton(exportarBtn, "Exportando...", () => exportarExcel(activa)));
+    document.getElementById("notificarToggleBtn").addEventListener("click", () => {
+      document.getElementById("notificarPanel").classList.toggle("hidden");
+    });
+    document.getElementById("notificarEnviarBtn").addEventListener("click", async (e) => {
+      const alertBox = document.getElementById("notificarAlertBox");
+      clearAlert(alertBox);
+      const modoPrueba = document.getElementById("notificarModoPrueba").checked;
+      if (!modoPrueba && !confirm("¿Enviar la notificación por correo a todo el personal activo?")) return;
+      const btn = e.target;
+      btn.disabled = true;
+      const textoOriginal = btn.textContent;
+      btn.textContent = "Enviando...";
+      try {
+        const data = await llamar("notificarEncuesta", { encuestaId: activa.id, modoPrueba });
+        const mensaje = data.prueba
+          ? "Correo de prueba enviado a gerencia.cincoltda@hotmail.com — revísalo antes de notificar a todos."
+          : `Notificación enviada a ${data.enviados.length} persona(s).${data.sinCorreo.length ? ` Sin correo registrado (no se les pudo notificar): ${data.sinCorreo.join(", ")}.` : ""}`;
+        showAlert(alertBox, mensaje, "success");
+      } catch (err) {
+        showAlert(alertBox, friendlyError(err), "error");
+      } finally {
+        btn.disabled = false;
+        btn.textContent = textoOriginal;
+      }
+    });
     document.getElementById("cerrarEncuestaBtn").addEventListener("click", async () => {
       const planAccion = document.getElementById("planAccionInput").value.trim();
       if (!planAccion) {
@@ -212,46 +251,95 @@ async function renderActiva({ forzar = false } = {}) {
 }
 
 // ---------- Historial ----------
+// Mismo patrón de "fila delgada + panel de vista previa fijo arriba" que
+// Empleados (ver empleados.js): la tabla es de una sola línea por encuesta,
+// sin acciones; clic en una fila la deja fijada en el panel, donde vive el
+// detalle completo (descripción, plan de acción, resultados) y las
+// acciones. Al entrar o cuando la fijada ya no existe, se fija sola la
+// primera fila, para que el panel nunca arranque vacío.
 
 let firmaHistorial = null;
+let historialSeleccionadoId = null;
 
-function renderHistorial() {
-  const cerradas = encuestas
+function encuestasCerradas() {
+  return encuestas
     .filter((e) => e.estado === "cerrada")
     .sort((a, b) => (b.fechaCierre?.seconds || 0) - (a.fechaCierre?.seconds || 0));
+}
+
+// Las encuestas antiguas guardaban cada pregunta como un string (sin tipo).
+const contarPreguntas = (enc) => (enc.preguntas || []).filter((p) => typeof p === "string" || !esEncabezado(p.tipo)).length;
+
+function renderHistorial() {
+  const cerradas = encuestasCerradas();
   const firma = JSON.stringify([esAdmin, cerradas.map((e) => [e.id, e.titulo, e.planAccion, e.fechaCierre?.seconds])]);
   if (firma === firmaHistorial) return;
   firmaHistorial = firma;
 
   if (cerradas.length === 0) {
-    historialEl.innerHTML = '<p class="text-muted">Aún no hay encuestas cerradas.</p>';
+    historialTabla.innerHTML = '<tr><td colspan="3" class="text-muted text-center">Aún no hay encuestas cerradas.</td></tr>';
+    historialSeleccionadoId = null;
+    pintarVistaPreviaHistorial();
     return;
   }
-  historialEl.innerHTML = cerradas.map((enc) => `
-    <div class="card" data-id="${esc(enc.id)}">
-      <h2>${esc(enc.titulo)}</h2>
-      <p class="text-muted text-sm">Cerrada el ${enc.fechaCierre ? formatDate(enc.fechaCierre) : "-"}</p>
-      ${enc.descripcion ? `<p class="encuesta-descripcion">${esc(enc.descripcion)}</p>` : ""}
-      <p><strong>Plan de acción:</strong> ${esc(enc.planAccion) || "-"}</p>
-      ${esAdmin ? `
-        <div class="encuesta-acciones">
-          <button type="button" class="btn secondary btn-auto btn-sm" data-accion="resultados" data-texto-abrir="Ver resultados">Ver resultados</button>
-          <button type="button" class="btn secondary btn-auto btn-sm" data-accion="exportar">Exportar a Excel</button>
-          <button type="button" class="btn secondary btn-auto btn-sm" data-accion="duplicar">Duplicar como borrador</button>
-        </div>
-        <div class="hidden" data-resultados></div>` : ""}
-    </div>
-  `).join("");
+  if (!historialSeleccionadoId || !cerradas.some((e) => e.id === historialSeleccionadoId)) {
+    historialSeleccionadoId = cerradas[0].id;
+  }
+  historialTabla.innerHTML = cerradas.map((enc) => `
+    <tr data-id="${esc(enc.id)}">
+      <td style="font-weight:600;">${celdaTrunc(enc.titulo)}</td>
+      <td>${enc.fechaCierre ? formatDate(enc.fechaCierre) : "-"}</td>
+      <td>${contarPreguntas(enc)}</td>
+    </tr>`).join("");
+  historialTabla.querySelectorAll("tr[data-id]").forEach((tr) => {
+    tr.addEventListener("click", () => {
+      historialSeleccionadoId = tr.getAttribute("data-id");
+      actualizarResaltadoHistorial();
+      pintarVistaPreviaHistorial();
+    });
+  });
+  actualizarResaltadoHistorial();
+  pintarVistaPreviaHistorial();
 }
 
-historialEl.addEventListener("click", async (e) => {
+function actualizarResaltadoHistorial() {
+  historialTabla.querySelectorAll("tr[data-id]").forEach((tr) => {
+    tr.classList.toggle("fila-fijada", tr.getAttribute("data-id") === historialSeleccionadoId);
+  });
+}
+
+const vistaPreviaHistorialEl = document.getElementById("vistaPreviaEncuesta");
+
+function pintarVistaPreviaHistorial() {
+  const enc = encuestas.find((x) => x.id === historialSeleccionadoId);
+  if (!enc) {
+    vistaPreviaHistorialEl.innerHTML = '<p class="text-muted" style="margin:0;">Aún no hay encuestas cerradas.</p>';
+    return;
+  }
+  const acciones = esAdmin ? `
+    <button type="button" class="btn secondary btn-auto btn-sm" data-accion="resultados" data-texto-abrir="Ver resultados">Ver resultados</button>
+    <button type="button" class="btn secondary btn-auto btn-sm" data-accion="exportar">Exportar a Excel</button>
+    <button type="button" class="btn secondary btn-auto btn-sm" data-accion="duplicar">Duplicar como borrador</button>
+  ` : "";
+  vistaPreviaHistorialEl.innerHTML = `
+    <div class="vp-encabezado">
+      <span class="vp-nombre">${esc(enc.titulo)}</span>
+      <div class="vp-acciones">${acciones}</div>
+    </div>
+    <p class="text-muted text-sm" style="margin:0;">Cerrada el ${enc.fechaCierre ? formatDate(enc.fechaCierre) : "-"}</p>
+    ${enc.descripcion ? `<p class="encuesta-descripcion">${esc(enc.descripcion)}</p>` : ""}
+    <p style="margin:0;"><strong>Plan de acción:</strong> ${esc(enc.planAccion) || "-"}</p>
+    ${esAdmin ? '<div class="hidden" data-resultados></div>' : ""}
+  `;
+}
+
+vistaPreviaHistorialEl.addEventListener("click", async (e) => {
   const boton = e.target.closest("[data-accion]");
   if (!boton || boton.dataset.accion === "descargar-archivo") return;
-  const tarjeta = boton.closest("[data-id]");
-  const enc = encuestas.find((x) => x.id === tarjeta?.dataset.id);
+  const enc = encuestas.find((x) => x.id === historialSeleccionadoId);
   if (!enc) return;
   if (boton.dataset.accion === "resultados") {
-    await alternarResultados(enc, tarjeta.querySelector("[data-resultados]"), boton);
+    await alternarResultados(enc, vistaPreviaHistorialEl.querySelector("[data-resultados]"), boton);
   } else if (boton.dataset.accion === "exportar") {
     await conBoton(boton, "Exportando...", () => exportarExcel(enc));
   } else if (boton.dataset.accion === "duplicar") {

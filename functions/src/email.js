@@ -352,6 +352,44 @@ async function enviarIncumplimientoInformeGestion({ nombre, correo, contrato, pe
   });
 }
 
+function notificacionEncuestaHtml({ nombre, titulo, descripcion, url }) {
+  const cuerpoHtml = `
+    <tr>
+      <td style="padding:26px 28px 4px;">
+        <div style="font-size:32px;line-height:1;margin-bottom:10px;">📋</div>
+        <h1 style="color:#ffffff;font-size:20px;margin:0 0 12px;">Hay una encuesta esperando tu respuesta</h1>
+        <p style="color:#c7c7c7;font-size:14px;line-height:1.5;margin:0;">
+          Hola ${nombre}, se publicó la encuesta <strong style="color:#ffffff;">${titulo}</strong> en Cinco Conecta.
+        </p>
+      </td>
+    </tr>
+    ${descripcion ? `
+    <tr>
+      <td style="padding:14px 28px 4px;">
+        <p style="color:#9aa1ab;font-size:13px;line-height:1.5;margin:0;">${descripcion}</p>
+      </td>
+    </tr>` : ""}
+    ${botonHtml("Responder encuesta", url)}
+    <tr>
+      <td style="padding:16px 28px 30px;">
+        <p style="color:#8a8a8a;font-size:12px;line-height:1.5;margin:0 0 4px;">Tu respuesta es anónima. Si el botón no funciona, copia y pega este enlace:</p>
+        <p style="color:#9aa1ab;font-size:11.5px;word-break:break-all;margin:0;">${url}</p>
+      </td>
+    </tr>`;
+  return envolverCorreoHtml({ subtitulo: "Encuestas", cuerpoHtml });
+}
+
+async function enviarNotificacionEncuesta({ nombre, correo, titulo, descripcion, url }) {
+  const transporter = buildTransporter();
+  await transporter.sendMail({
+    from: `"Cinco Conecta" <${process.env.SMTP_USER}>`,
+    replyTo: DESTINATARIO_RRHH,
+    to: correo,
+    subject: `Nueva encuesta: ${titulo}`,
+    html: notificacionEncuestaHtml({ nombre, titulo, descripcion, url })
+  });
+}
+
 module.exports = {
   enviarConfirmacionPostulacion,
   enviarNotificacionRRHH,
@@ -360,5 +398,6 @@ module.exports = {
   enviarNuevaPasswordEmpleado,
   enviarAsignacionInformeGestion,
   enviarIncumplimientoInformeGestion,
+  enviarNotificacionEncuesta,
   ETAPA_TEXTO
 };

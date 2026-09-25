@@ -102,6 +102,7 @@ img { max-width: 100%; display: block; }
 .w-30 { width: 30%; }
 .w-32 { width: 32%; }
 .w-40 { width: 40%; }
+.w-60 { width: 60%; }
 .mt-4 { margin: 4px 0 0; }
 .checkbox-row { display: flex; align-items: center; gap: 8px; font-weight: 400; margin-top: 14px; }
 .checkbox-row input[type="checkbox"] { width: auto; }
