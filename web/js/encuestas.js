@@ -105,82 +105,90 @@ async function conBoton(boton, textoEspera, tarea) {
   }
 }
 
-// ---------- Responder (encuesta activa) ----------
+// ---------- Responder (encuestas activas) ----------
+// Pueden existir VARIAS encuestas activas al mismo tiempo (para poder
+// enviar más de una a la vez) — cada una vive en su propia tarjeta, con su
+// propio botón "Cerrar encuesta". Las acciones de cada tarjeta se manejan
+// por delegación (un solo listener en activaEl, identificando la tarjeta
+// por data-id) porque el número de tarjetas cambia dinámicamente.
 
 let tokenActiva = 0;
 let firmaActiva = null;
 
 async function renderActiva({ forzar = false } = {}) {
-  const activa = encuestas.find((e) => e.estado === "activa");
-  const firma = JSON.stringify(activa ? [activa.id, activa.titulo, activa.descripcion || "", activa.preguntas, esAdmin] : null);
-  // Si la encuesta no cambió no se vuelve a dibujar: así nadie pierde lo que
-  // está escribiendo cuando llega un cambio ajeno (p. ej. otro borrador).
+  const activas = encuestas.filter((e) => e.estado === "activa").sort((a, b) => (a.creadoEn?.seconds || 0) - (b.creadoEn?.seconds || 0));
+  const firma = JSON.stringify([esAdmin, activas.map((a) => [a.id, a.titulo, a.descripcion || "", a.preguntas, a.notificadoEn?.seconds || null])]);
+  // Si nada cambió no se vuelve a dibujar: así nadie pierde lo que está
+  // escribiendo cuando llega un cambio ajeno (p. ej. otro borrador).
   if (!forzar && firma === firmaActiva) return;
   firmaActiva = firma;
   const token = ++tokenActiva;
 
-  if (!activa) {
+  if (activas.length === 0) {
     activaEl.innerHTML = '<div class="card"><p class="text-muted">No hay ninguna encuesta activa en este momento.</p></div>';
     return;
   }
 
-  const votoDoc = await getDoc(doc(db, "encuestas", activa.id, "votos", user.uid));
+  const votos = await Promise.all(activas.map((a) => getDoc(doc(db, "encuestas", a.id, "votos", user.uid))));
   if (token !== tokenActiva) return;
-  const yaVoto = votoDoc.exists();
 
-  const cuerpoAdmin = esAdmin ? `
-    <hr class="divider">
-    <div class="encuesta-acciones">
-      <button type="button" class="btn secondary btn-auto btn-sm" id="editarActivaBtn">Editar encuesta</button>
-      <button type="button" class="btn secondary btn-auto btn-sm" id="resultadosActivaBtn" data-texto-abrir="Ver resultados parciales">Ver resultados parciales</button>
-      <button type="button" class="btn secondary btn-auto btn-sm" id="exportarActivaBtn">Exportar a Excel</button>
-      <button type="button" class="btn secondary btn-auto btn-sm" id="notificarToggleBtn">📧 Notificar a todo el personal</button>
-    </div>
-    <div id="resultadosActiva" class="hidden"></div>
-    ${activa.notificadoEn ? `<p class="text-muted text-sm">📧 Notificado por ${esc(activa.notificadoPorNombre || "-")} · ${formatDate(activa.notificadoEn)}</p>` : ""}
-    <div class="card hidden" id="notificarPanel">
-      <label class="checkbox-row"><input type="checkbox" id="notificarModoPrueba"> Modo prueba — enviar solo un correo de ejemplo a gerencia.cincoltda@hotmail.com (no le llega a nadie más, no queda registrado como notificación real)</label>
-      <button type="button" class="btn btn-auto mt-4" id="notificarEnviarBtn">Enviar notificación</button>
-      <div class="alert" id="notificarAlertBox"></div>
-    </div>
-    <hr class="divider">
-    <label for="planAccionInput">Cerrar esta encuesta y publicar el plan de acción</label>
-    <textarea id="planAccionInput" rows="3" placeholder="Con base en sus respuestas, vamos a..."></textarea>
-    <button type="button" class="btn secondary" id="cerrarEncuestaBtn">Cerrar encuesta</button>
-  ` : "";
+  activaEl.innerHTML = activas.map((activa, i) => {
+    const yaVoto = votos[i].exists();
+    const cuerpoAdmin = esAdmin ? `
+      <hr class="divider">
+      <div class="encuesta-acciones">
+        <button type="button" class="btn secondary btn-auto btn-sm" data-accion="editar">Editar encuesta</button>
+        <button type="button" class="btn secondary btn-auto btn-sm" data-accion="resultados" data-texto-abrir="Ver resultados parciales">Ver resultados parciales</button>
+        <button type="button" class="btn secondary btn-auto btn-sm" data-accion="exportar">Exportar a Excel</button>
+        <button type="button" class="btn secondary btn-auto btn-sm" data-accion="notificar-toggle">📧 Notificar a todo el personal</button>
+      </div>
+      <div class="hidden" data-resultados></div>
+      ${activa.notificadoEn ? `<p class="text-muted text-sm">📧 Notificado por ${esc(activa.notificadoPorNombre || "-")} · ${formatDate(activa.notificadoEn)}</p>` : ""}
+      <div class="card hidden" data-notificar-panel>
+        <label class="checkbox-row"><input type="checkbox" data-notificar-prueba> Modo prueba — enviar solo un correo de ejemplo a gerencia.cincoltda@hotmail.com (no le llega a nadie más, no queda registrado como notificación real)</label>
+        <button type="button" class="btn btn-auto mt-4" data-accion="notificar-enviar">Enviar notificación</button>
+        <div class="alert" data-notificar-alert></div>
+      </div>
+      <hr class="divider">
+      <label>Cerrar esta encuesta y publicar el plan de acción</label>
+      <textarea rows="3" placeholder="Con base en sus respuestas, vamos a..." data-plan-accion></textarea>
+      <button type="button" class="btn secondary" data-accion="cerrar">Cerrar encuesta</button>
+    ` : "";
 
-  activaEl.innerHTML = `
-    <div class="card">
-      <h2>${esc(activa.titulo)}</h2>
-      ${activa.descripcion ? `<p class="encuesta-descripcion">${esc(activa.descripcion)}</p>` : ""}
-      ${yaVoto
-        ? '<p class="text-muted">Ya respondiste esta encuesta — ¡gracias por tu opinión!</p>'
-        : `
-          <form id="responderForm" novalidate>
-            <div id="formPreguntas"></div>
-            <label for="comentario">Comentario (opcional)</label>
-            <textarea id="comentario" rows="2" maxlength="500"></textarea>
-            <p class="text-muted text-sm">Tus respuestas son anónimas.</p>
-            <div class="alert" id="responderAlert"></div>
-            <div class="progreso-subida" id="progresoSubida"></div>
-            <button type="submit" class="btn" id="responderBtn">Enviar respuesta</button>
-          </form>
-        `}
-      ${cuerpoAdmin}
-    </div>
-  `;
+    return `
+      <div class="card" data-id="${esc(activa.id)}">
+        <h2>${esc(activa.titulo)}</h2>
+        ${activa.descripcion ? `<p class="encuesta-descripcion">${esc(activa.descripcion)}</p>` : ""}
+        ${yaVoto
+          ? '<p class="text-muted">Ya respondiste esta encuesta — ¡gracias por tu opinión!</p>'
+          : `
+            <form data-form novalidate>
+              <div data-form-preguntas></div>
+              <label>Comentario (opcional)</label>
+              <textarea rows="2" maxlength="500" data-comentario></textarea>
+              <p class="text-muted text-sm">Tus respuestas son anónimas.</p>
+              <div class="alert" data-responder-alert></div>
+              <div class="progreso-subida" data-progreso-subida></div>
+              <button type="submit" class="btn" data-responder-btn>Enviar respuesta</button>
+            </form>
+          `}
+        ${cuerpoAdmin}
+      </div>`;
+  }).join("");
 
-  if (!yaVoto) {
+  activas.forEach((activa, i) => {
+    if (votos[i].exists()) return;
+    const tarjeta = activaEl.querySelector(`[data-id="${CSS.escape(activa.id)}"]`);
     const formulario = montarFormulario({
-      host: document.getElementById("formPreguntas"),
+      host: tarjeta.querySelector("[data-form-preguntas]"),
       preguntas: activa.preguntas || [],
       subirArchivo: ({ preguntaId, nombre, base64 }) => llamar("subirArchivoEncuesta", { encuestaId: activa.id, preguntaId, nombre, base64 })
     });
-    document.getElementById("responderForm").addEventListener("submit", async (e) => {
+    tarjeta.querySelector("[data-form]").addEventListener("submit", async (e) => {
       e.preventDefault();
-      const alertBox = document.getElementById("responderAlert");
-      const progreso = document.getElementById("progresoSubida");
-      const btn = document.getElementById("responderBtn");
+      const alertBox = tarjeta.querySelector("[data-responder-alert]");
+      const progreso = tarjeta.querySelector("[data-progreso-subida]");
+      const btn = tarjeta.querySelector("[data-responder-btn]");
       clearAlert(alertBox);
       btn.disabled = true;
       btn.textContent = "Enviando...";
@@ -193,7 +201,7 @@ async function renderActiva({ forzar = false } = {}) {
           return;
         }
         progreso.textContent = "Enviando respuesta...";
-        await llamar("responderEncuesta", { encuestaId: activa.id, respuestas, comentario: document.getElementById("comentario").value });
+        await llamar("responderEncuesta", { encuestaId: activa.id, respuestas, comentario: tarjeta.querySelector("[data-comentario]").value });
         await renderActiva({ forzar: true });
       } catch (err) {
         showAlert(alertBox, friendlyError(err), "error");
@@ -202,28 +210,36 @@ async function renderActiva({ forzar = false } = {}) {
         btn.textContent = "Enviar respuesta";
       }
     });
-  }
+  });
+}
 
-  if (esAdmin) {
-    document.getElementById("editarActivaBtn").addEventListener("click", () => cargarEnEditor({ modo: "activa", id: activa.id, encuesta: activa }));
-    const resultadosBtn = document.getElementById("resultadosActivaBtn");
-    resultadosBtn.addEventListener("click", () => alternarResultados(activa, document.getElementById("resultadosActiva"), resultadosBtn));
-    const exportarBtn = document.getElementById("exportarActivaBtn");
-    exportarBtn.addEventListener("click", () => conBoton(exportarBtn, "Exportando...", () => exportarExcel(activa)));
-    document.getElementById("notificarToggleBtn").addEventListener("click", () => {
-      document.getElementById("notificarPanel").classList.toggle("hidden");
-    });
-    document.getElementById("notificarEnviarBtn").addEventListener("click", async (e) => {
-      const alertBox = document.getElementById("notificarAlertBox");
+if (esAdmin) {
+  activaEl.addEventListener("click", async (e) => {
+    const boton = e.target.closest("[data-accion]");
+    if (!boton || boton.dataset.accion === "descargar-archivo") return;
+    const tarjeta = boton.closest("[data-id]");
+    const enc = encuestas.find((x) => x.id === tarjeta?.dataset.id);
+    if (!enc) return;
+    const accion = boton.dataset.accion;
+
+    if (accion === "editar") {
+      cargarEnEditor({ modo: "activa", id: enc.id, encuesta: enc });
+    } else if (accion === "resultados") {
+      await alternarResultados(enc, tarjeta.querySelector("[data-resultados]"), boton);
+    } else if (accion === "exportar") {
+      await conBoton(boton, "Exportando...", () => exportarExcel(enc));
+    } else if (accion === "notificar-toggle") {
+      tarjeta.querySelector("[data-notificar-panel]").classList.toggle("hidden");
+    } else if (accion === "notificar-enviar") {
+      const alertBox = tarjeta.querySelector("[data-notificar-alert]");
       clearAlert(alertBox);
-      const modoPrueba = document.getElementById("notificarModoPrueba").checked;
+      const modoPrueba = tarjeta.querySelector("[data-notificar-prueba]").checked;
       if (!modoPrueba && !confirm("¿Enviar la notificación por correo a todo el personal activo?")) return;
-      const btn = e.target;
-      btn.disabled = true;
-      const textoOriginal = btn.textContent;
-      btn.textContent = "Enviando...";
+      boton.disabled = true;
+      const textoOriginal = boton.textContent;
+      boton.textContent = "Enviando...";
       try {
-        const data = await llamar("notificarEncuesta", { encuestaId: activa.id, modoPrueba });
+        const data = await llamar("notificarEncuesta", { encuestaId: enc.id, modoPrueba });
         const mensaje = data.prueba
           ? "Correo de prueba enviado a gerencia.cincoltda@hotmail.com — revísalo antes de notificar a todos."
           : `Notificación enviada a ${data.enviados.length} persona(s).${data.sinCorreo.length ? ` Sin correo registrado (no se les pudo notificar): ${data.sinCorreo.join(", ")}.` : ""}`;
@@ -231,23 +247,23 @@ async function renderActiva({ forzar = false } = {}) {
       } catch (err) {
         showAlert(alertBox, friendlyError(err), "error");
       } finally {
-        btn.disabled = false;
-        btn.textContent = textoOriginal;
+        boton.disabled = false;
+        boton.textContent = textoOriginal;
       }
-    });
-    document.getElementById("cerrarEncuestaBtn").addEventListener("click", async () => {
-      const planAccion = document.getElementById("planAccionInput").value.trim();
+    } else if (accion === "cerrar") {
+      const planAccion = tarjeta.querySelector("[data-plan-accion]").value.trim();
       if (!planAccion) {
         alert("Escribe el plan de acción antes de cerrar la encuesta.");
         return;
       }
-      await updateDoc(doc(db, "encuestas", activa.id), {
+      if (!confirm(`¿Cerrar la encuesta "${enc.titulo}"? Ya no se podrá responder — quedará en "Encuestas anteriores".`)) return;
+      await updateDoc(doc(db, "encuestas", enc.id), {
         estado: "cerrada",
         planAccion,
         fechaCierre: Timestamp.now()
       });
-    });
-  }
+    }
+  });
 }
 
 // ---------- Historial ----------
@@ -405,17 +421,17 @@ if (esAdmin) {
     if (sucio) e.preventDefault();
   });
 
+  // Pueden convivir varias encuestas activas al tiempo (cada una se cierra
+  // con su propio botón "Cerrar encuesta") — publicar una nueva nunca se
+  // bloquea por eso.
   function actualizarBotones() {
     const editandoActiva = ctx.modo === "activa";
-    const hayActiva = encuestas.some((x) => x.estado === "activa");
-    const bloqueada = !editandoActiva && hayActiva;
-    tituloTrigger.textContent = editandoActiva ? "Editando la encuesta activa"
+    tituloTrigger.textContent = editandoActiva ? "Editando una encuesta activa"
       : ctx.modo === "borrador" ? "Editando un borrador" : "Nueva encuesta";
     publicarBtn.textContent = editandoActiva ? "Guardar cambios" : "Publicar encuesta";
-    publicarBtn.disabled = bloqueada;
     borradorBtn.classList.toggle("hidden", editandoActiva);
     cancelarBtn.classList.toggle("hidden", ctx.modo === "nueva");
-    notaPublicar.textContent = bloqueada ? "Ya hay una encuesta activa — ciérrala antes de publicar otra. Mientras tanto puedes guardar esta como borrador." : "";
+    notaPublicar.textContent = "";
   }
 
   function reiniciar() {
@@ -579,9 +595,6 @@ if (esAdmin) {
         reiniciar();
         tarjeta.classList.remove("abierto");
         return;
-      }
-      if (encuestas.some((x) => x.estado === "activa")) {
-        throw new Error("Ya hay una encuesta activa — ciérrala antes de publicar otra. Puedes guardar esta como borrador.");
       }
       const lote = writeBatch(db);
       lote.set(doc(collection(db, "encuestas")), {

@@ -1193,6 +1193,25 @@ textarea:disabled, select:disabled, textarea[readonly] { background: var(--sideb
 .encabezado-titulo { margin-top: 12px; font-size: 16px; font-weight: 700; }
 .encabezado-descripcion { margin-top: 8px; font-size: 13px; min-height: 0; overflow: hidden; resize: none; line-height: 1.5; }
 .encabezado-editor-pie { display: flex; justify-content: flex-end; align-items: center; gap: 6px; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border); }
+
+/* Tarjeta colapsada: solo el resumen (número/ícono + título), sin editor a
+   la vista — clic la expande. contraer-btn es el mismo gesto a la inversa,
+   dentro de la tarjeta ya expandida. */
+.pregunta-editor.colapsada, .encabezado-editor.colapsada { padding: 0; }
+.contraer-btn { margin-left: auto; }
+.pregunta-resumen {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  padding: 13px 18px; background: none; border: none; cursor: pointer; text-align: left; font: inherit; color: inherit;
+}
+.pregunta-resumen:hover { background: var(--sidebar-hover); }
+.tipo-icono-mini {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 24px; height: 24px; border-radius: 6px; flex-shrink: 0;
+  background: rgba(254, 178, 9, 0.18); color: var(--cinco-amber-dark); font-weight: 700; font-size: 12px;
+}
+.pregunta-resumen-texto { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+.pregunta-resumen-texto.vacio { color: var(--text-muted); font-weight: 400; font-style: italic; }
+.pregunta-resumen-chevron { flex-shrink: 0; color: var(--text-muted); font-size: 12px; }
 .editor-acciones { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 20px; align-items: center; }
 .editor-acciones .btn { margin-top: 0; }
 .borrador-item { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 10px 14px; margin-bottom: 8px; }

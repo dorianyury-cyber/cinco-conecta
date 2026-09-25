@@ -123,7 +123,23 @@ function htmlCuerpo(q) {
   }
 }
 
-function htmlPregunta(q, i, total, numPregunta) {
+// Colapsada: solo el número/ícono + el título, para poder escanear muchas
+// preguntas de un vistazo (estilo Google Forms). Clic en el resumen expande
+// la tarjeta completa con su editor; clic en "▴ Contraer" la vuelve a cerrar.
+function htmlResumen(q, { numero, icono, vacio }) {
+  return `
+    <button type="button" class="pregunta-resumen" data-accion="expandir">
+      ${numero !== undefined ? `<span class="pregunta-num">${numero}</span>` : ""}
+      <span class="tipo-icono-mini" aria-hidden="true">${icono}</span>
+      <span class="pregunta-resumen-texto${q.texto ? "" : " vacio"}">${esc(q.texto) || vacio}</span>
+      <span class="pregunta-resumen-chevron" aria-hidden="true">▾</span>
+    </button>`;
+}
+
+function htmlPregunta(q, i, total, numPregunta, expandido) {
+  if (!expandido) {
+    return `<div class="pregunta-editor bloque-editor colapsada" data-i="${i}">${htmlResumen(q, { numero: numPregunta, icono: TIPO_ICONO[q.tipo], vacio: "Pregunta sin título" })}</div>`;
+  }
   return `
     <div class="pregunta-editor bloque-editor" data-i="${i}">
       <div class="pregunta-editor-head">
@@ -137,6 +153,7 @@ function htmlPregunta(q, i, total, numPregunta) {
             </select>
           </div>
         </div>
+        <button type="button" class="icon-btn contraer-btn" data-accion="expandir" title="Contraer" aria-label="Contraer pregunta">▴</button>
       </div>
       <input type="text" class="pregunta-texto" data-campo="texto" maxlength="200" value="${esc(q.texto)}" placeholder="Escribe la pregunta" aria-label="Pregunta ${numPregunta}">
       <textarea class="pregunta-descripcion" data-campo="descripcion" rows="2" placeholder="Descripción o ayuda (opcional)" aria-label="Descripción de la pregunta ${numPregunta}">${esc(q.descripcion)}</textarea>
@@ -153,12 +170,16 @@ function htmlPregunta(q, i, total, numPregunta) {
     </div>`;
 }
 
-function htmlEncabezado(q, i, total) {
+function htmlEncabezado(q, i, total, expandido) {
+  if (!expandido) {
+    return `<div class="encabezado-editor bloque-editor colapsada" data-i="${i}">${htmlResumen(q, { icono: "¶", vacio: "Encabezado sin título" })}</div>`;
+  }
   return `
     <div class="encabezado-editor bloque-editor" data-i="${i}">
       <div class="encabezado-editor-head">
         <span class="encabezado-icono" aria-hidden="true">¶</span>
         <span class="encabezado-etiqueta">Encabezado de sección</span>
+        <button type="button" class="icon-btn contraer-btn" data-accion="expandir" title="Contraer" aria-label="Contraer encabezado">▴</button>
       </div>
       <input type="text" class="encabezado-titulo" data-campo="texto" maxlength="200" value="${esc(q.texto)}" placeholder="Título del encabezado" aria-label="Título del encabezado">
       <textarea class="encabezado-descripcion" data-campo="descripcion" rows="2" placeholder="Texto descriptivo (opcional)" aria-label="Descripción del encabezado">${esc(q.descripcion)}</textarea>
@@ -177,14 +198,20 @@ function htmlEncabezado(q, i, total) {
  */
 export function crearEditor(host, { alCambiar = () => {}, confirmarCambioTipo = () => true } = {}) {
   let preguntas = [preguntaNueva()];
+  // Tarjetas expandidas (con el editor completo a la vista) — el resto
+  // queda colapsada mostrando solo su título, para poder escanear muchas
+  // preguntas de un vistazo. Por id (no por índice): así sobrevive a mover,
+  // duplicar o eliminar otras tarjetas.
+  let expandidoIds = new Set([preguntas[0].id]);
 
   function render(enfocar) {
     let numPregunta = 0;
     const tope = preguntas.length >= LIMITES.preguntas;
     host.innerHTML = preguntas.map((q, i) => {
-      if (esEncabezado(q.tipo)) return htmlEncabezado(q, i, preguntas.length);
+      const expandido = expandidoIds.has(q.id);
+      if (esEncabezado(q.tipo)) return htmlEncabezado(q, i, preguntas.length, expandido);
       numPregunta++;
-      return htmlPregunta(q, i, preguntas.length, numPregunta);
+      return htmlPregunta(q, i, preguntas.length, numPregunta, expandido);
     }).join("")
       + `<div class="agregar-bloque">
           <button type="button" class="btn secondary btn-auto agregar-pregunta" data-accion="agregar-pregunta" ${tope ? "disabled" : ""}>+ Agregar pregunta</button>
@@ -240,14 +267,23 @@ export function crearEditor(host, { alCambiar = () => {}, confirmarCambioTipo = 
     const q = preguntas[i];
     const campo = e.target.dataset.campo;
     switch (campo) {
-      case "tipo":
+      case "tipo": {
         if (!confirmarCambioTipo(q, e.target.value)) {
           e.target.value = q.tipo;
           return;
         }
+        const idAntes = q.id;
         cambiarTipo(q, e.target.value);
+        // cambiarTipo puede darle un id nuevo (cambio de "familia" de
+        // respuesta) — sin esto la tarjeta se vería colapsar sola a mitad
+        // de la edición.
+        if (q.id !== idAntes && expandidoIds.has(idAntes)) {
+          expandidoIds.delete(idAntes);
+          expandidoIds.add(q.id);
+        }
         render(selCampo(i, "tipo"));
         break;
+      }
       case "obligatoria":
         q.obligatoria = e.target.checked;
         break;
@@ -291,7 +327,9 @@ export function crearEditor(host, { alCambiar = () => {}, confirmarCambioTipo = 
     const accion = boton.dataset.accion;
 
     if (accion === "agregar-pregunta") {
-      preguntas.push(preguntaNueva());
+      const nueva = preguntaNueva();
+      expandidoIds.add(nueva.id);
+      preguntas.push(nueva);
       render(`[data-i="${preguntas.length - 1}"] .pregunta-texto`);
       host.querySelector(`[data-i="${preguntas.length - 1}"]`)?.scrollIntoView({ behavior: "smooth", block: "center" });
       alCambiar();
@@ -299,7 +337,9 @@ export function crearEditor(host, { alCambiar = () => {}, confirmarCambioTipo = 
     }
 
     if (accion === "agregar-encabezado") {
-      preguntas.push(encabezadoNuevo());
+      const nuevo = encabezadoNuevo();
+      expandidoIds.add(nuevo.id);
+      preguntas.push(nuevo);
       render(`[data-i="${preguntas.length - 1}"] .encabezado-titulo`);
       host.querySelector(`[data-i="${preguntas.length - 1}"]`)?.scrollIntoView({ behavior: "smooth", block: "center" });
       alCambiar();
@@ -333,16 +373,25 @@ export function crearEditor(host, { alCambiar = () => {}, confirmarCambioTipo = 
       return;
     }
 
+    if (accion === "expandir") {
+      const expandiendo = !expandidoIds.has(q.id);
+      if (expandiendo) expandidoIds.add(q.id); else expandidoIds.delete(q.id);
+      render(expandiendo ? `[data-i="${i}"] .pregunta-texto, [data-i="${i}"] .encabezado-titulo` : undefined);
+      return;
+    }
+
     if (accion === "quitar-pregunta") {
       if (preguntas.length <= 1) return;
       if (!confirm(esEncabezado(q.tipo) ? "¿Eliminar este encabezado?" : "¿Eliminar esta pregunta?")) return;
       preguntas.splice(i, 1);
+      expandidoIds.delete(q.id);
       render();
     } else if (accion === "duplicar-pregunta") {
       if (preguntas.length >= LIMITES.preguntas) return;
       const copia = JSON.parse(JSON.stringify(q));
       copia.id = nuevoId();
       delete copia.origen;
+      expandidoIds.add(copia.id);
       preguntas.splice(i + 1, 0, copia);
       render(`[data-i="${i + 1}"] .pregunta-texto`);
     } else if (accion === "subir-pregunta" && mover(preguntas, i, i - 1)) {
@@ -376,6 +425,9 @@ export function crearEditor(host, { alCambiar = () => {}, confirmarCambioTipo = 
         return q;
       });
       if (preguntas.length === 0) preguntas = [preguntaNueva()];
+      // Todas colapsadas al cargar una encuesta existente: con varias
+      // preguntas, ver solo los títulos de una vez es justo el punto.
+      expandidoIds = preguntas.length === 1 ? new Set([preguntas[0].id]) : new Set();
       render();
     },
     /** Estado actual del editor (formato de edición; usa serializarPreguntas para guardar). */
@@ -384,6 +436,7 @@ export function crearEditor(host, { alCambiar = () => {}, confirmarCambioTipo = 
     },
     reiniciar() {
       preguntas = [preguntaNueva()];
+      expandidoIds = new Set([preguntas[0].id]);
       render();
     }
   };
