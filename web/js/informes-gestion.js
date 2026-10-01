@@ -2188,6 +2188,34 @@ if (informeId) {
         document.getElementById("portadaVigenciaInicio").value = informeActual.vigenciaInicio || "";
         document.getElementById("portadaVigenciaFin").value = informeActual.vigenciaFin || "";
         document.getElementById("portadaRadicado").value = informeActual.radicado || "";
+        // Informes duplicados antes de que "Duplicar como nuevo periodo"
+        // copiara la portada (ej. septiembre 2026) la traen vacía — este
+        // botón la recupera del informe del que se duplicó.
+        document.getElementById("portadaTraerAnteriorBtn").classList.toggle("hidden", !informeActual.duplicadoDe);
+      }
+    });
+
+    // Datos de portada que se repiten de un mes a otro (todo menos el
+    // radicado, que es propio de cada periodo).
+    const CAMPOS_PORTADA_COPIABLES = [
+      ["numeroContrato", "portadaNumeroContrato"], ["objeto", "portadaObjeto"], ["cliente", "portadaCliente"],
+      ["supervisor", "portadaSupervisor"], ["vigenciaInicio", "portadaVigenciaInicio"], ["vigenciaFin", "portadaVigenciaFin"]
+    ];
+    document.getElementById("portadaTraerAnteriorBtn").addEventListener("click", async () => {
+      const alertBox = document.getElementById("portadaAlertBox");
+      clearAlert(alertBox);
+      try {
+        const anteriorSnap = await getDoc(doc(db, "informesGestion", informeActual.duplicadoDe));
+        const anterior = anteriorSnap.exists() ? anteriorSnap.data() : null;
+        const conDatos = anterior ? CAMPOS_PORTADA_COPIABLES.filter(([campo]) => anterior[campo]) : [];
+        if (conDatos.length === 0) {
+          showAlert(alertBox, "El informe anterior tampoco tiene datos de portada guardados — llénalos aquí a mano.", "error");
+          return;
+        }
+        conDatos.forEach(([campo, inputId]) => { document.getElementById(inputId).value = anterior[campo]; });
+        showAlert(alertBox, `Se trajeron ${conDatos.length} dato(s) de la portada de ${anterior.periodoLabel || "el informe anterior"}. Revísalos y haz clic en "Guardar datos de portada".`, "ok");
+      } catch (err) {
+        showAlert(alertBox, friendlyError(err), "error");
       }
     });
 
@@ -2375,6 +2403,15 @@ if (informeId) {
           anio,
           mes,
           prefijoNumeracion: informeActual.prefijoNumeracion || "",
+          // Datos de portada del PDF: se repiten de un mes a otro, así que
+          // se copian (antes quedaban vacíos en el periodo nuevo). El
+          // radicado NO se copia — cada periodo obtiene el suyo.
+          numeroContrato: informeActual.numeroContrato || "",
+          objeto: informeActual.objeto || "",
+          cliente: informeActual.cliente || "",
+          supervisor: informeActual.supervisor || "",
+          vigenciaInicio: informeActual.vigenciaInicio || null,
+          vigenciaFin: informeActual.vigenciaFin || null,
           estado: "borrador",
           creadoPor: user.uid,
           creadoPorNombre: perfil.nombre || user.email,
