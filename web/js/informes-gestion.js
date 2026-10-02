@@ -2489,7 +2489,7 @@ if (informeId) {
       const docPdf = crearDocumentoPDF("portrait");
       const anchoPagina = docPdf.internal.pageSize.getWidth();
       const altoPagina = docPdf.internal.pageSize.getHeight();
-      const geometria = { margenSuperior: 20, margenInferior: altoPagina - 22, anchoUtil: anchoPagina - INDICE_MARGEN_X * 2 };
+      const geometria = { margenSuperior: 20, margenInferior: altoPagina - 22, anchoUtil: anchoPagina - MARGEN_IZQ - MARGEN_DER };
 
       let logo = null;
       if (portadaClara) {
@@ -2729,6 +2729,16 @@ function formatFechaCorta(iso) {
   return new Date(`${iso}T00:00:00`).toLocaleDateString("es-CO", { day: "numeric", month: "long", year: "numeric" });
 }
 
+// Márgenes del PDF: el izquierdo lleva 1 cm más que el derecho para que,
+// impreso y perforado para guardarlo en una carpeta física, las
+// perforaciones no se coman el contenido. Todo lo centrado se centra
+// dentro del área útil (entre los dos márgenes), no en la hoja.
+const MARGEN_IZQ = 22;
+const MARGEN_DER = 12;
+function centroContenido(anchoPagina) {
+  return (MARGEN_IZQ + anchoPagina - MARGEN_DER) / 2;
+}
+
 // Encabezado (logo + título) y pie de página (código de formato + radicado +
 // número de página) en todas las páginas de contenido, sin tocar la portada
 // (página 1) — mismo formato/código SGC (AC-FOR-002 · Versión 1) que el PDF
@@ -2739,7 +2749,7 @@ function agregarEncabezadoPiePaginaInforme(doc, informe, logo) {
   const AMBER_PDF = [254, 178, 9];
   const anchoPagina = doc.internal.pageSize.getWidth();
   const altoPagina = doc.internal.pageSize.getHeight();
-  const margenX = 12;
+  const margenX = MARGEN_IZQ;
   const totalPaginas = doc.internal.getNumberOfPages();
   const titulo = `Informe de Gestión — ${informe.periodoLabel}`;
 
@@ -2747,7 +2757,7 @@ function agregarEncabezadoPiePaginaInforme(doc, informe, logo) {
     doc.setPage(p);
     doc.setDrawColor(...AMBER_PDF);
     doc.setLineWidth(0.6);
-    doc.line(margenX, 16, anchoPagina - margenX, 16);
+    doc.line(margenX, 16, anchoPagina - MARGEN_DER, 16);
 
     let anchoLogo = 0;
     if (logo) {
@@ -2762,7 +2772,7 @@ function agregarEncabezadoPiePaginaInforme(doc, informe, logo) {
     // nunca quede montado sobre el logo.
     doc.setFont("times", "normal");
     doc.setTextColor(...TEXT_MUTED_PDF);
-    const anchoDisponibleTitulo = anchoPagina - margenX - (margenX + anchoLogo + 4);
+    const anchoDisponibleTitulo = anchoPagina - MARGEN_DER - (margenX + anchoLogo + 4);
     let tamanoTitulo = 8;
     let lineasTitulo = doc.splitTextToSize(titulo, anchoDisponibleTitulo);
     while (lineasTitulo.length > 2 && tamanoTitulo > 6) {
@@ -2774,7 +2784,7 @@ function agregarEncabezadoPiePaginaInforme(doc, informe, logo) {
     if (lineasTitulo.length > 2) lineasTitulo = [lineasTitulo[0], lineasTitulo[1].replace(/.{3}$/, "...")];
     const yInicioTitulo = lineasTitulo.length > 1 ? 8 : 11;
     lineasTitulo.slice(0, 2).forEach((linea, i) => {
-      doc.text(linea, anchoPagina - margenX, yInicioTitulo + i * 3.6, { align: "right" });
+      doc.text(linea, anchoPagina - MARGEN_DER, yInicioTitulo + i * 3.6, { align: "right" });
     });
 
     doc.setFillColor(...GRIS_CLARO_PDF);
@@ -2783,7 +2793,7 @@ function agregarEncabezadoPiePaginaInforme(doc, informe, logo) {
     doc.setFontSize(7.5);
     doc.setTextColor(...TEXT_MUTED_PDF);
     doc.text(`Código: AC-FOR-002 · Versión: 1`, margenX, altoPagina - 6);
-    doc.text(`Radicado ${informe.radicado || ""} · Página ${p} de ${totalPaginas}`, anchoPagina - margenX, altoPagina - 6, { align: "right" });
+    doc.text(`Radicado ${informe.radicado || ""} · Página ${p} de ${totalPaginas}`, anchoPagina - MARGEN_DER, altoPagina - 6, { align: "right" });
     doc.setTextColor(0, 0, 0);
   }
 }
@@ -2796,8 +2806,8 @@ function agregarEncabezadoPiePaginaInforme(doc, informe, logo) {
 function dibujarPortadaNavy(doc, informe, logo) {
   const anchoPagina = doc.internal.pageSize.getWidth();
   const altoPagina = doc.internal.pageSize.getHeight();
-  const margenX = 12;
-  const anchoUtil = anchoPagina - margenX * 2;
+  const margenX = MARGEN_IZQ;
+  const anchoUtil = anchoPagina - MARGEN_IZQ - MARGEN_DER;
 
   doc.setPage(1);
   doc.setFillColor(...NAVY_PDF);
@@ -2814,23 +2824,23 @@ function dibujarPortadaNavy(doc, informe, logo) {
   doc.setFontSize(20);
   doc.setTextColor(255, 255, 255);
   const tituloLineas = doc.splitTextToSize(`Informe de Gestión — ${informe.periodoLabel}`, anchoUtil);
-  doc.text(tituloLineas, anchoPagina / 2, y, { align: "center" });
+  doc.text(tituloLineas, centroContenido(anchoPagina), y, { align: "center" });
   y += tituloLineas.length * 8 + 6;
 
   doc.setFont("times", "normal");
   doc.setFontSize(12);
   doc.setTextColor(254, 178, 9);
-  doc.text("Informe de gestión", anchoPagina / 2, y, { align: "center" });
+  doc.text("Informe de gestión", centroContenido(anchoPagina), y, { align: "center" });
 
   y = 150;
   doc.setFontSize(10.5);
-  const xValor = anchoPagina / 2 - 6;
-  const anchoValor = anchoPagina - margenX - xValor;
+  const xValor = centroContenido(anchoPagina) - 6;
+  const anchoValor = anchoPagina - MARGEN_DER - xValor;
   const filaPortada = (etiqueta, valor) => {
     if (!valor) return;
     doc.setFont("times", "bold");
     doc.setTextColor(255, 255, 255);
-    doc.text(etiqueta, anchoPagina / 2 - 45, y);
+    doc.text(etiqueta, centroContenido(anchoPagina) - 45, y);
     doc.setFont("times", "normal");
     doc.setTextColor(220, 224, 229);
     const renglones = doc.splitTextToSize(String(valor), anchoValor);
@@ -2846,11 +2856,11 @@ function dibujarPortadaNavy(doc, informe, logo) {
   doc.setFont("times", "bold");
   doc.setFontSize(11);
   doc.setTextColor(255, 255, 255);
-  doc.text(`Radicado: ${informe.radicado || ""}`, anchoPagina / 2, altoPagina - 30, { align: "center" });
+  doc.text(`Radicado: ${informe.radicado || ""}`, centroContenido(anchoPagina), altoPagina - 30, { align: "center" });
   doc.setFont("times", "normal");
   doc.setFontSize(9);
   doc.setTextColor(199, 204, 211);
-  doc.text(`Cinco S.A.S. · ${informe.periodoLabel}`, anchoPagina / 2, altoPagina - 24, { align: "center" });
+  doc.text(`Cinco S.A.S. · ${informe.periodoLabel}`, centroContenido(anchoPagina), altoPagina - 24, { align: "center" });
   doc.setTextColor(0, 0, 0);
 }
 
@@ -2863,8 +2873,8 @@ function dibujarPortadaNavy(doc, informe, logo) {
 function dibujarPortadaClara(doc, informe, logo) {
   const anchoPagina = doc.internal.pageSize.getWidth();
   const altoPagina = doc.internal.pageSize.getHeight();
-  const margenX = 12;
-  const anchoUtil = anchoPagina - margenX * 2;
+  const margenX = MARGEN_IZQ;
+  const anchoUtil = anchoPagina - MARGEN_IZQ - MARGEN_DER;
   const AMBER_PDF = [254, 178, 9];
   const AMBER_DARK_PDF = [217, 148, 0];
 
@@ -2891,23 +2901,23 @@ function dibujarPortadaClara(doc, informe, logo) {
   doc.setFontSize(20);
   doc.setTextColor(...NAVY_PDF);
   const tituloLineas = doc.splitTextToSize(`Informe de Gestión — ${informe.periodoLabel}`, anchoUtil);
-  doc.text(tituloLineas, anchoPagina / 2, y, { align: "center" });
+  doc.text(tituloLineas, centroContenido(anchoPagina), y, { align: "center" });
   y += tituloLineas.length * 8 + 6;
 
   doc.setFont("times", "normal");
   doc.setFontSize(12);
   doc.setTextColor(...AMBER_DARK_PDF);
-  doc.text("Informe de gestión", anchoPagina / 2, y, { align: "center" });
+  doc.text("Informe de gestión", centroContenido(anchoPagina), y, { align: "center" });
 
   y = 150;
   doc.setFontSize(10.5);
-  const xValor = anchoPagina / 2 - 6;
-  const anchoValor = anchoPagina - margenX - xValor;
+  const xValor = centroContenido(anchoPagina) - 6;
+  const anchoValor = anchoPagina - MARGEN_DER - xValor;
   const filaPortada = (etiqueta, valor) => {
     if (!valor) return;
     doc.setFont("times", "bold");
     doc.setTextColor(...NAVY_PDF);
-    doc.text(etiqueta, anchoPagina / 2 - 45, y);
+    doc.text(etiqueta, centroContenido(anchoPagina) - 45, y);
     doc.setFont("times", "normal");
     doc.setTextColor(...TEXT_MUTED_PDF);
     const renglones = doc.splitTextToSize(String(valor), anchoValor);
@@ -2923,11 +2933,11 @@ function dibujarPortadaClara(doc, informe, logo) {
   doc.setFont("times", "bold");
   doc.setFontSize(11);
   doc.setTextColor(...NAVY_PDF);
-  doc.text(`Radicado: ${informe.radicado || ""}`, anchoPagina / 2, altoPagina - 30, { align: "center" });
+  doc.text(`Radicado: ${informe.radicado || ""}`, centroContenido(anchoPagina), altoPagina - 30, { align: "center" });
   doc.setFont("times", "normal");
   doc.setFontSize(9);
   doc.setTextColor(...TEXT_MUTED_PDF);
-  doc.text(`Cinco S.A.S. · ${informe.periodoLabel}`, anchoPagina / 2, altoPagina - 24, { align: "center" });
+  doc.text(`Cinco S.A.S. · ${informe.periodoLabel}`, centroContenido(anchoPagina), altoPagina - 24, { align: "center" });
   doc.setTextColor(0, 0, 0);
 }
 
@@ -2949,9 +2959,9 @@ function dibujarPortadaClara(doc, informe, logo) {
 function dibujarParrafoBloque(doc, y, bloque) {
   const anchoPagina = doc.internal.pageSize.getWidth();
   const altoPagina = doc.internal.pageSize.getHeight();
-  const margenX = 12;
+  const margenX = MARGEN_IZQ;
   const margenInferior = altoPagina - 18;
-  const anchoUtil = anchoPagina - margenX * 2;
+  const anchoUtil = anchoPagina - MARGEN_IZQ - MARGEN_DER;
   const lineHeight = 5;
   const COLOR_PARRAFO = [20, 22, 26];
 
@@ -3122,8 +3132,8 @@ function dibujarTituloBloque(doc, y, bloque, numero, onTitulo) {
   doc.setFont("times", nivel <= 2 ? "bold" : "bolditalic");
   doc.setFontSize(TAMANOS[nivel]);
   doc.setTextColor(...NAVY_PDF);
-  const margenX = 12 + (nivel - 1) * 3;
-  const lineas = doc.splitTextToSize(`${numero}. ${bloque.texto || ""}`, anchoPagina - margenX - 12);
+  const margenX = MARGEN_IZQ + (nivel - 1) * 3;
+  const lineas = doc.splitTextToSize(`${numero}. ${bloque.texto || ""}`, anchoPagina - MARGEN_DER - MARGEN_DER);
   lineas.forEach((linea) => {
     if (y > altoPagina - margenInferior) { doc.addPage(); y = 20; }
     doc.text(linea, margenX, y);
@@ -3143,9 +3153,9 @@ function dibujarTituloBloque(doc, y, bloque, numero, onTitulo) {
 function dibujarTablaBloque(doc, y, bloque, numero, onTitulo) {
   const anchoPagina = doc.internal.pageSize.getWidth();
   const altoPagina = doc.internal.pageSize.getHeight();
-  const margenX = 12;
+  const margenX = MARGEN_IZQ;
   const margenInferior = altoPagina - 18;
-  const anchoUtil = anchoPagina - margenX * 2;
+  const anchoUtil = anchoPagina - MARGEN_IZQ - MARGEN_DER;
 
   function saltoSiNoCabe(alturaNecesaria) {
     if (y + alturaNecesaria > margenInferior) { doc.addPage(); y = 20; }
@@ -3227,7 +3237,7 @@ function dibujarTablaBloque(doc, y, bloque, numero, onTitulo) {
     const altoEncabezado = sumaRango(alturaFilas, 0, filasEncabezado);
     saltoSiNoCabe(altoTitulo + altoEncabezado);
     doc.setTextColor(...NAVY_PDF);
-    doc.text(lineasTitulo, anchoPagina / 2, y, { align: "center" });
+    doc.text(lineasTitulo, centroContenido(anchoPagina), y, { align: "center" });
     y += altoTitulo;
     if (onTitulo) onTitulo(doc.internal.getNumberOfPages());
   }
@@ -3310,7 +3320,7 @@ function dibujarTablaBloque(doc, y, bloque, numero, onTitulo) {
     doc.setTextColor(...TEXT_MUTED_PDF);
     const lineasNota = doc.splitTextToSize(bloque.nota, anchoUtil);
     saltoSiNoCabe(lineasNota.length * 4.5);
-    doc.text(lineasNota, anchoPagina - margenX, y, { align: "right" });
+    doc.text(lineasNota, anchoPagina - MARGEN_DER, y, { align: "right" });
     y += lineasNota.length * 4.5;
   }
   doc.setTextColor(0);
@@ -3322,10 +3332,10 @@ function dibujarTablaBloque(doc, y, bloque, numero, onTitulo) {
 async function dibujarImagenBloque(doc, y, bloque, numero, onTitulo) {
   const anchoPagina = doc.internal.pageSize.getWidth();
   const altoPagina = doc.internal.pageSize.getHeight();
-  const margenX = 12;
+  const margenX = MARGEN_IZQ;
   const margenSuperior = 20;
   const margenInferior = altoPagina - 18;
-  const anchoUtil = anchoPagina - margenX * 2;
+  const anchoUtil = anchoPagina - MARGEN_IZQ - MARGEN_DER;
 
   try {
     // previewUrl (si existe) es una imagen todavía sin subir a Storage —
@@ -3355,7 +3365,7 @@ async function dibujarImagenBloque(doc, y, bloque, numero, onTitulo) {
       const altoNombre = lineasNombre.length * 5;
       if (y + altoNombre + alto + 10 > margenInferior) { doc.addPage(); y = margenSuperior; }
       doc.setTextColor(...NAVY_PDF);
-      doc.text(lineasNombre, anchoPagina / 2, y, { align: "center" });
+      doc.text(lineasNombre, centroContenido(anchoPagina), y, { align: "center" });
       y += altoNombre;
       if (onTitulo) onTitulo(doc.internal.getNumberOfPages());
     } else if (y + alto + 10 > margenInferior) {
@@ -3371,7 +3381,7 @@ async function dibujarImagenBloque(doc, y, bloque, numero, onTitulo) {
       doc.setFontSize(9);
       doc.setTextColor(...TEXT_MUTED_PDF);
       const lineasPie = doc.splitTextToSize(bloque.pieDeFoto, anchoUtil);
-      doc.text(lineasPie, anchoPagina - margenX, y, { align: "right" });
+      doc.text(lineasPie, anchoPagina - MARGEN_DER, y, { align: "right" });
       y += lineasPie.length * 4.5;
     }
     doc.setTextColor(0);
@@ -3401,10 +3411,10 @@ async function dibujarImagenBloque(doc, y, bloque, numero, onTitulo) {
 async function dibujarFirmaBloque(doc, y, bloque) {
   const anchoPagina = doc.internal.pageSize.getWidth();
   const altoPagina = doc.internal.pageSize.getHeight();
-  const margenX = 12;
+  const margenX = MARGEN_IZQ;
   const margenSuperior = 20;
   const margenInferior = altoPagina - 18;
-  const anchoUtil = anchoPagina - margenX * 2;
+  const anchoUtil = anchoPagina - MARGEN_IZQ - MARGEN_DER;
 
   const firmantes = bloque.firmantes && bloque.firmantes.length ? bloque.firmantes : [{ nombre: "", cargo: "" }];
   const numFirmantes = firmantes.length;
@@ -3566,7 +3576,7 @@ async function agregarSeccionEstrategia(doc, y, titulo, bloques, tracking, esEnc
     if (y > altoPagina - margenInferior - 20) { doc.addPage(); y = 20; }
     doc.setFont("times", "bold");
     doc.setFontSize(11);
-    doc.text(titulo, 12, y);
+    doc.text(titulo, MARGEN_IZQ, y);
     y += 6;
   }
 
@@ -3574,7 +3584,7 @@ async function agregarSeccionEstrategia(doc, y, titulo, bloques, tracking, esEnc
     if (esEncabezado) return y + 2;
     doc.setFont("times", "normal");
     doc.setFontSize(9.5);
-    doc.text("Sin contenido registrado.", 12, y);
+    doc.text("Sin contenido registrado.", MARGEN_IZQ, y);
     return y + 12;
   }
 
@@ -3622,7 +3632,7 @@ async function agregarSeccionEstrategia(doc, y, titulo, bloques, tracking, esEnc
 // exactamente igual y nunca se desincronizan.
 // ======================================================================
 
-const INDICE_MARGEN_X = 12;
+const INDICE_MARGEN_X = MARGEN_IZQ;
 const INDICE_ALTURA_ENTRADA = 6;
 
 function recorrerListaIndice(doc, estado, titulo, entradas, { margenSuperior, margenInferior, anchoUtil }) {
@@ -3656,7 +3666,11 @@ function recorrerListaIndice(doc, estado, titulo, entradas, { margenSuperior, ma
     if (dibujar) {
       const nivel = Math.min(4, Math.max(1, Number(en.nivel) || 1));
       const indent = (nivel - 1) * 6;
-      doc.setFont("times", nivel === 1 ? "bold" : nivel >= 3 ? "italic" : "normal");
+      // Solo los títulos de nivel 1 del Contenido van en negrilla; las
+      // entradas de "Lista de tablas"/"Lista de gráficos" no traen nivel y
+      // van en letra normal.
+      const negrilla = en.nivel != null && nivel === 1;
+      doc.setFont("times", negrilla ? "bold" : nivel >= 3 ? "italic" : "normal");
       doc.setFontSize(9.5);
       doc.setTextColor(20, 22, 26);
       const paginaTexto = String(en.pagina);
